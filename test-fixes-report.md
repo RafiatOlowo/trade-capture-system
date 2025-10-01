@@ -75,3 +75,39 @@ All fixes were implemented and verified through a **successful re-run** of the e
 * Trade creation and amendment successfully satisfy all dependency requirements.
 * The business rule requiring the trade start date to be on or after the trade date is correctly enforced.
 * The `TradeService` accurately generates the expected number of cashflows (24 total) for a monthly schedule over a one-year period.
+***
+
+# Test Fix Report
+
+## TRADE-LEG-VALIDATION-STABILIZATION
+***
+## 1. Bug Identification
+The unit test `TradeLegControllerTest.testCreateTradeLegValidationFailure_NegativeNotional` was failing with the error: `Response content expected:<Notional must be positive> but was:<>`.
+
+This occurred despite the presence of manual validation logic in the controller designed to return the expected error string.
+
+***
+## 2. Root Cause Analysis
+The failure was caused by a **conflict between two layers of validation**:
+
+* **Layer 1 (Declarative):** The `@Valid` annotation on the controller method triggered the **`@Positive`** annotation present on the `notional` field in the `TradeLegDTO`.
+* **Layer 2 (Manual):** The `TradeLegController` contained the manual `if` check: `if (tradeLegDTO.getNotional().signum() <= 0)`.
+
+Because **Layer 1 executes first**, the `@Positive` rule failed, throwing a `MethodArgumentNotValidException`. Spring's default error handler intercepted this exception and returned a **400 Bad Request with an empty body (`<>`)**. The code never reached **Layer 2**, which contained the logic to return the specific string `"Notional must be positive"`.
+
+***
+## 3. Bug Fix Implementation
+The fix involved removing the conflicting declarative validation to ensure the code flow reached the manual validation layer, which held the expected assertion string:
+
+* **Removal of Conflict:** The `@Positive` annotation was **removed** from the `notional` field in the `TradeLegDTO` class.
+* **Validation Reliance Shift:** The negative/zero check for `notional` is now **exclusively reliant** on the manual `if` check within the `TradeLegController.createTradeLeg` method.
+
+This guarantees that when a negative notional is sent, the controller's manual logic executes and returns the exact string the test asserts against.
+
+***
+## 4. Testing and Validation
+The fix was implemented and verified:
+
+* The test `testCreateTradeLegValidationFailure_NegativeNotional` now passes successfully, confirming the response status is `400 Bad Request` and the content body is `"Notional must be positive"`.
+* The business rule requiring a positive notional is confirmed to be enforced by the controller's manual check.
+* The `TradeLegControllerTest` suite remains stable.
