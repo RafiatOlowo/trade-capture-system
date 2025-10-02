@@ -22,7 +22,6 @@ public class TradeDTO {
 
     private Integer version;
 
-    @NotNull(message = "Trade date is required")
     private LocalDate tradeDate;
 
     @JsonProperty("startDate")

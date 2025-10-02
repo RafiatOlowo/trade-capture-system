@@ -87,6 +87,15 @@ public class TradeController {
             @Valid @RequestBody TradeDTO tradeDTO) {
         logger.info("Creating new trade: {}", tradeDTO);
         try {
+            // Manual validation for Trade Date presence
+            if (tradeDTO.getTradeDate() == null) {
+            return ResponseEntity.badRequest().body("Trade date is required");
+            }
+
+            // Manual validation for Book and Counterparty presence
+            if (tradeDTO.getBookName() == null || tradeDTO.getCounterpartyName() == null) {
+            return ResponseEntity.badRequest().body("Book and Counterparty are required");
+            }
             Trade trade = tradeMapper.toEntity(tradeDTO);
             tradeService.populateReferenceDataByName(trade, tradeDTO);
             Trade savedTrade = tradeService.saveTrade(trade, tradeDTO);
@@ -115,6 +124,12 @@ public class TradeController {
             @Parameter(description = "Updated trade details", required = true)
             @Valid @RequestBody TradeDTO tradeDTO) {
         logger.info("Updating trade with id: {}", id);
+        
+        // Ensure the path ID matches the DTO ID if provided
+        if (tradeDTO.getTradeId() != null && !id.equals(tradeDTO.getTradeId())) {
+        return ResponseEntity.badRequest().body("Trade ID in path must match Trade ID in request body");
+        }
+
         try {
             tradeDTO.setTradeId(id); // Ensure the ID matches
             Trade amendedTrade = tradeService.amendTrade(id, tradeDTO);
@@ -130,7 +145,7 @@ public class TradeController {
     @Operation(summary = "Delete trade",
                description = "Deletes an existing trade. This is a soft delete that changes the trade status.")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Trade deleted successfully"),
+        @ApiResponse(responseCode = "204", description = "Trade deleted successfully"),
         @ApiResponse(responseCode = "404", description = "Trade not found"),
         @ApiResponse(responseCode = "400", description = "Trade cannot be deleted in current status"),
         @ApiResponse(responseCode = "403", description = "Insufficient privileges to delete trade")
@@ -141,7 +156,7 @@ public class TradeController {
         logger.info("Deleting trade with id: {}", id);
         try {
             tradeService.deleteTrade(id);
-            return ResponseEntity.ok().body("Trade cancelled successfully");
+            return ResponseEntity.noContent().build();
         } catch (Exception e) {
             logger.error("Error deleting trade: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body("Error deleting trade: " + e.getMessage());
