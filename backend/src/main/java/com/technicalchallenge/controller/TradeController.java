@@ -87,6 +87,11 @@ public class TradeController {
             @Valid @RequestBody TradeDTO tradeDTO) {
         logger.info("Creating new trade: {}", tradeDTO);
         try {
+            // Manual validation for Trade Date presence
+            if (tradeDTO.getTradeDate() == null) {
+            return ResponseEntity.badRequest().body("Trade date is required");
+            }
+
             // Manual validation for Book and Counterparty presence
             if (tradeDTO.getBookName() == null || tradeDTO.getCounterpartyName() == null) {
             return ResponseEntity.badRequest().body("Book and Counterparty are required");
