@@ -5,6 +5,9 @@ import com.technicalchallenge.dto.TradeLegDTO;
 import com.technicalchallenge.model.*;
 import com.technicalchallenge.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.slf4j.Logger;
@@ -587,5 +590,15 @@ public class TradeService {
     private Long generateNextTradeId() {
         // For simplicity, using a static variable. In real scenario, this should be atomic and thread-safe.
         return 10000L + tradeRepository.count();
+    }
+    
+    // Pagination support for trades
+    public Page<Trade> findAll(Pageable pageable) {
+        // Uses the built-in findAll(Pageable) method provided by JpaRepository
+        return tradeRepository.findAll(pageable);
+    }
+    
+    public Page<Trade> searchTrades(Specification<Trade> spec, Pageable pageable) {
+        return tradeRepository.findAll(spec, pageable);
     }
 }
