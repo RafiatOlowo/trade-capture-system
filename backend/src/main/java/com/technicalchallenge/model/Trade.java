@@ -1,6 +1,8 @@
 package com.technicalchallenge.model;
 
 import jakarta.persistence.*;
+import jakarta.persistence.Index;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -14,7 +16,21 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "trade")
+@Table(name = "trade", indexes = {
+    // index
+    @Index(name = "idx_trade_book", columnList = "book_id"),
+    @Index(name = "idx_trade_counterparty", columnList = "counterparty_id"),
+    @Index(name = "idx_trader_id", columnList = "trader_user_id"), 
+    @Index(name = "idx_trade_status", columnList = "trade_status_id"),
+    @Index(name = "idx_trade_date", columnList = "tradeDate"),
+
+     
+    // Composite index for common two-criteria searches
+    @Index(name = "idx_trade_cp_date", columnList = "counterparty_id, tradeDate"),
+
+    // Composite index for searches involving trader and status
+    @Index(name = "idx_trade_trader_status", columnList = "trader_user_id, trade_status_id")
+})
 public class Trade {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
