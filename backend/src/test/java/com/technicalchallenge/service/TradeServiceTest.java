@@ -27,11 +27,19 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.Optional;
+import java.util.Collections;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -87,6 +95,9 @@ class TradeServiceTest {
     private TradeStatus mockTradeStatus;
     private ApplicationUser mockTraderUser;
     private TradeLeg mockTradeLeg;
+    private Pageable pageable;
+    private List<Trade> tradeList;
+    private Page<Trade> tradePage;
 
 
     @BeforeEach
@@ -128,6 +139,11 @@ class TradeServiceTest {
         trade.setId(1L);
         trade.setTradeId(100001L);
         trade.setVersion(1);
+        tradeList = List.of(trade);
+        tradePage = new PageImpl<>(tradeList);
+        
+        // 2. Setup Pageable object
+        pageable = PageRequest.of(0, 10);
     }
 
     @Test
@@ -276,5 +292,72 @@ class TradeServiceTest {
         
         // Verify that the CashflowRepository.save() method was called 24 times.
         verify(cashflowRepository, times(24)).save(any(Cashflow.class));
+    }
+
+    // Test Methods for findAll(Pageable)
+
+    @Test
+    void testFindAll_ReturnsPageOfTrades() {
+        // Arrange
+        when(tradeRepository.findAll(pageable)).thenReturn(tradePage);
+
+        // Act
+        Page<Trade> result = tradeService.findAll(pageable);
+
+        // Assert
+        assertNotNull(result);
+        assertFalse(result.isEmpty());
+        assertEquals(1, result.getTotalElements());
+        verify(tradeRepository, times(1)).findAll(pageable);
+    }
+
+    @Test
+    void testFindAll_HandlesEmptyResult() {
+        // Arrange
+        Page<Trade> emptyPage = new PageImpl<>(Collections.emptyList());
+        when(tradeRepository.findAll(pageable)).thenReturn(emptyPage);
+
+        // Act
+        Page<Trade> result = tradeService.findAll(pageable);
+
+        // Assert
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
+        assertEquals(0, result.getTotalElements());
+        verify(tradeRepository, times(1)).findAll(pageable);
+    }
+
+    // Test Methods for searchTrades(Specification, Pageable)
+    @Test
+    void testSearchTrades_ExecutesWithSpecification() {
+        // Arrange
+        Specification<Trade> mockSpec = mock(Specification.class);
+        when(tradeRepository.findAll(mockSpec, pageable)).thenReturn(tradePage);
+
+        // Act
+        Page<Trade> result = tradeService.searchTrades(mockSpec, pageable);
+
+        // Assert
+        assertNotNull(result);
+        assertFalse(result.isEmpty());
+        assertEquals(trade.getId(), result.getContent().get(0).getId());
+        // Verify the repository was called with the specific Specification and Pageable
+        verify(tradeRepository, times(1)).findAll(mockSpec, pageable); 
+    }
+
+    @Test
+    void testSearchTrades_HandlesNoMatch() {
+        // Arrange
+        Specification<Trade> mockSpec = mock(Specification.class); 
+        Page<Trade> emptyPage = new PageImpl<>(Collections.emptyList());
+        when(tradeRepository.findAll(mockSpec, pageable)).thenReturn(emptyPage);
+
+        // Act
+        Page<Trade> result = tradeService.searchTrades(mockSpec, pageable);
+
+        // Assert
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
+        verify(tradeRepository, times(1)).findAll(mockSpec, pageable);
     }
 }
