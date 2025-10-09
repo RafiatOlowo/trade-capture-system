@@ -166,6 +166,21 @@
                     </includes>
                 </configuration>
             </plugin>
+            <!-- Failsafe Plugin (CRITICAL: For Integration Tests: *IT.java) -->
+        <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-failsafe-plugin</artifactId>
+            <executions>
+                <execution>
+                    <goals>
+                        <!-- Runs during the integration-test phase -->
+                        <goal>integration-test</goal>
+                        <!-- Checks assertions during the verify phase -->
+                        <goal>verify</goal>
+                    </goals>
+                </execution>
+            </executions>
+        </plugin>
         </plugins>
     </build>
 </project>
