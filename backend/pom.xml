@@ -55,6 +55,20 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- https://mvnrepository.com/artifact/io.github.perplexhub/rsql-jpa-spring-boot-starter -->
+        <dependency>
+            <groupId>io.github.perplexhub</groupId>
+            <artifactId>rsql-jpa-spring-boot-starter</artifactId>
+            <version>6.0.26</version>
+        </dependency>
+
+        <!-- https://mvnrepository.com/artifact/io.github.perplexhub/rsql-jpa-specification -->
+        <dependency>
+            <groupId>io.github.perplexhub</groupId>
+            <artifactId>rsql-jpa-specification</artifactId>
+            <version>6.0.32</version>
+        </dependency>
+
         <!-- RSQL for dynamic queries -->
         <dependency>
             <groupId>cz.jirutka.rsql</groupId>
@@ -152,6 +166,21 @@
                     </includes>
                 </configuration>
             </plugin>
+            <!-- Failsafe Plugin (CRITICAL: For Integration Tests: *IT.java) -->
+        <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-failsafe-plugin</artifactId>
+            <executions>
+                <execution>
+                    <goals>
+                        <!-- Runs during the integration-test phase -->
+                        <goal>integration-test</goal>
+                        <!-- Checks assertions during the verify phase -->
+                        <goal>verify</goal>
+                    </goals>
+                </execution>
+            </executions>
+        </plugin>
         </plugins>
     </build>
 </project>

@@ -5,11 +5,14 @@ import com.technicalchallenge.mapper.TradeMapper;
 import com.technicalchallenge.model.Trade;
 import com.technicalchallenge.service.TradeService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import io.github.perplexhub.rsql.RSQLSupport;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -19,10 +22,15 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import jakarta.validation.Valid;
+import jakarta.persistence.criteria.Predicate;
+
+import java.time.LocalDate;
 import java.util.List;
 
+import org.aspectj.apache.bcel.classfile.Code;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Pageable;
 
 @RestController
 @RequestMapping("/api/trades")
@@ -70,6 +78,147 @@ public class TradeController {
                 .map(tradeMapper::toDto)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    // Search Endpoint
+    @GetMapping("/search")
+    @Operation(
+        summary = "Multi-Criteria Trade Search",
+        description = "Retrieves a paginated list of trades by filtering on any of these fields: Counterparty, Book, Trader, Status, and Date Ranges (start and end dates)."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Trades retrieved successfully"),
+        @ApiResponse(responseCode = "400", description = "Invalid request parameter(s)"),
+        @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
+    public ResponseEntity<Page<TradeDTO>> simpleSearch(
+            @RequestParam(value = "counterparty", required = false) String counterpartyName,
+            @RequestParam(value = "book", required = false) String bookName,
+            @RequestParam(value = "trader", required = false) Long traderId,
+            @RequestParam(value = "status", required = false) String tradeStatus,
+            @RequestParam(value = "startDate", required = false) LocalDate startDate,
+            @RequestParam(value = "endDate", required = false) LocalDate endDate,
+            Pageable pageable) {
+
+        logger.info("Starting multi-criteria search. Params: [Counterparty: {}, Book: {}, Trader: {}, Status: {}, Startdate: {}, Enddate: {}]",
+                counterpartyName, bookName, traderId, tradeStatus, startDate, endDate);
+        Specification<Trade> specification = Specification.where(null);
+        boolean filtersApplied = false;
+
+        // 1. Trader Filter (Direct JPA Specification)
+        if (traderId != null) {
+            specification = specification.and((root, query, criteriaBuilder) -> 
+                criteriaBuilder.equal(root.get("traderUser").get("id"), traderId)
+            );
+            filtersApplied = true;
+        }
+        
+        // 2. Counterparty Filter (Direct JPA Specification)
+        if (counterpartyName != null && !counterpartyName.isBlank()) {
+            specification = specification.and((root, query, criteriaBuilder) ->
+                criteriaBuilder.equal(root.get("counterparty").get("name"), counterpartyName)
+            );
+            filtersApplied = true;
+        }
+        
+        // 3. Book Filter (Direct JPA Specification)
+        if (bookName != null && !bookName.isBlank()) {
+            specification = specification.and((root, query, criteriaBuilder) ->
+                criteriaBuilder.equal(root.get("book").get("bookName"), bookName)
+            );
+            filtersApplied = true;
+        }
+
+        // 4. Status Filter (Direct JPA Specification)
+        if (tradeStatus != null && !tradeStatus.isBlank()) {
+            specification = specification.and((root, query, criteriaBuilder) ->
+                criteriaBuilder.equal(root.get("tradeStatus").get("tradeStatus"), tradeStatus)
+            );
+            filtersApplied = true;
+        }
+
+        // 5. Date Range Filter (Direct JPA Specification)
+        if (startDate != null || endDate != null) {
+            specification = specification.and((root, query, criteriaBuilder) -> {
+                Predicate datePredicate = criteriaBuilder.conjunction(); 
+                
+                if (startDate != null) {
+                    datePredicate = criteriaBuilder.and(datePredicate, criteriaBuilder.greaterThanOrEqualTo(root.get("tradeDate"), startDate));
+                }
+                
+                if (endDate != null) {
+                    datePredicate = criteriaBuilder.and(datePredicate, criteriaBuilder.lessThanOrEqualTo(root.get("tradeDate"), endDate));
+                }
+                
+                return datePredicate;
+            });
+            filtersApplied = true;
+        }
+        
+        // Execute Search Logic
+        
+        // If no filter parameters were passed, use findAll
+        if (!filtersApplied) {
+            Page<Trade> tradePage = tradeService.findAll(pageable);
+            return ResponseEntity.ok(tradePage.map(tradeMapper::toDto));
+        }
+        
+        // Executes the final combined Specification.
+        Page<Trade> tradePage = tradeService.searchTrades(specification, pageable);
+        
+        return ResponseEntity.ok(tradePage.map(tradeMapper::toDto));
+    }
+    
+    // Filter Endpoint (Pagination Only)
+    @GetMapping("/filter")
+    @Operation(
+        summary = "Paginated Retrieval of All Trades",
+        description = "Retrieves all trades with optional pagination and sorting"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Trades retrieved successfully with pagination"),
+        @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
+    public ResponseEntity<Page<TradeDTO>> paginatedFilter(Pageable pageable) {
+
+        logger.info("Fetching all trades with pagination: {}", pageable);
+        
+        // Calls the simple findAll(Pageable) method
+        Page<Trade> tradePage = tradeService.findAll(pageable);
+        
+        Page<TradeDTO> dtoPage = tradePage.map(tradeMapper::toDto);
+        
+        return ResponseEntity.ok(dtoPage);
+    }        
+
+    // RSQL Endpoint
+    // Implement security later.
+    @GetMapping("/rsql")
+    @Operation(
+        summary = "Advanced Trade Search using RSQL (REST Query Language)",
+        description = "Allows power users to construct complex filtering queries using RSQL syntax (e.g., 'counterparty.name==ABC;tradeDate=gt=2024-01-01'). Results are paginated."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Trades retrieved successfully"),   
+        @ApiResponse(responseCode = "400", description = "Invalid RSQL syntax"),
+        @ApiResponse(responseCode = "500", description = "Internal server error") 
+    })
+    public ResponseEntity<Page<TradeDTO>> advancedSearch(
+            @RequestParam(value = "query", required = false, defaultValue = "") String rsqlQuery,
+            Pageable pageable) {
+        
+        logger.info("Starting RSQL trade search with query: '{}'", rsqlQuery);
+
+        // If no query is provided, call the paginated find 
+        if (rsqlQuery.isEmpty()) {
+            Page<Trade> tradePage = tradeService.findAll(pageable);
+            return ResponseEntity.ok(tradePage.map(tradeMapper::toDto));
+        }
+
+        // Otherwise, execute the RSQL Specification search.
+         Specification<Trade> specification = RSQLSupport.toSpecification(rsqlQuery);
+         Page<Trade> tradePage = tradeService.searchTrades(specification, pageable);
+         return ResponseEntity.ok(tradePage.map(tradeMapper::toDto));
     }
 
     @PostMapping

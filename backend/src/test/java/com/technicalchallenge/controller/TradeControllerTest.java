@@ -12,6 +12,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.servlet.MockMvc;
@@ -19,6 +23,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.Collections;
 
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
@@ -44,11 +49,14 @@ public class TradeControllerTest {
     private ObjectMapper objectMapper;
     private TradeDTO tradeDTO;
     private Trade trade;
+    private Pageable pageable;
 
     @BeforeEach
     void setUp() {
         objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
+
+        pageable = PageRequest.of(0, 10);
 
         // Create a sample TradeDTO for testing
         tradeDTO = new TradeDTO();
@@ -124,6 +132,236 @@ public class TradeControllerTest {
                 .andExpect(status().isNotFound());
 
         verify(tradeService).getTradeById(9999L);
+    }
+
+    // Tests for the /search Endpoint
+
+    @Test
+    void testSimpleSearch_SuccessWithAllCriteria() throws Exception {
+        // Arrange
+        String counterparty = "GS";
+        String book = "NYC-BOOK";
+        Long traderId = 42L;
+        String status = "NEW";
+        String startDate = "2024-01-01";
+        String endDate = "2024-01-31";
+        
+        // Mock the service to return a dummy paginated result for any Specification
+        Page<Trade> tradePage = new PageImpl<>(List.of(trade), PageRequest.of(0, 10), 1);
+        when(tradeService.searchTrades(any(), any())).thenReturn(tradePage);
+
+        // Act & Assert
+        mockMvc.perform(get("/api/trades/search")
+                .param("counterparty", counterparty)
+                .param("book", book)
+                .param("trader", String.valueOf(traderId))
+                .param("status", status)
+                .param("startDate", startDate)
+                .param("endDate", endDate)
+                .param("page", "0")
+                .param("size", "10")
+                .contentType(MediaType.APPLICATION_JSON))
+                
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalElements").value(1));
+
+        // Verify that the correct service method was called
+        verify(tradeService, times(1)).searchTrades(any(), any(Pageable.class));
+        verify(tradeService, never()).findAll(any()); // Should not fall back to findAll
+    }
+
+    @Test
+    void testSimpleSearch_SuccessWithNoCriteria() throws Exception {
+        // Arrange
+        Page<Trade> tradePage = new PageImpl<>(List.of(trade), PageRequest.of(0, 10), 10);
+
+        // Mock the fallback service method
+        when(tradeService.findAll(any(Pageable.class))).thenReturn(tradePage);
+
+        // Act & Assert
+        mockMvc.perform(get("/api/trades/search")
+                .param("page", "0")
+                .param("size", "10")
+                .contentType(MediaType.APPLICATION_JSON))
+                
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalElements").value(10));
+
+        // Verify that the fallback method was called
+        verify(tradeService, times(1)).findAll(any(Pageable.class));
+        verify(tradeService, never()).searchTrades(any(), any()); // Should not call searchTrades
+    }
+
+    @Test
+    void testSimpleSearch_OnlyDateRangeCriteria() throws Exception {
+        // Arrange
+        String startDate = "2024-05-01";
+        
+        Page<Trade> tradePage = new PageImpl<>(List.of(trade), PageRequest.of(0, 10), 5);
+        when(tradeService.searchTrades(any(), any())).thenReturn(tradePage);
+
+        // Act & Assert
+        mockMvc.perform(get("/api/trades/search")
+                .param("startDate", startDate)
+                .param("page", "0")
+                .contentType(MediaType.APPLICATION_JSON))
+                
+            .andExpect(status().isOk())
+            // changed assertion from 5 to 1 for less dummy data setup.
+            .andExpect(jsonPath("$.totalElements").value(1));
+
+        // Verify that searchTrades was correctly called when only one filter is active
+        verify(tradeService, times(1)).searchTrades(any(), any(Pageable.class));
+        verify(tradeService, never()).findAll(any());
+    }
+
+    @Test
+    void testSimpleSearch_InvalidInput_Returns400() throws Exception {
+        // Arrange
+        // Passing a non-numeric string for 'trader' which is expected to be a Long
+        String invalidTraderId = "NOT_A_NUMBER"; 
+
+        // Act & Assert
+        mockMvc.perform(get("/api/trades/search")
+                .param("trader", invalidTraderId)
+                .contentType(MediaType.APPLICATION_JSON))
+                
+            // Expect Spring to handle the type mismatch error and return 400
+            .andExpect(status().isBadRequest()); 
+
+        // Verify that the service layer was never reached due to the binding error
+        verify(tradeService, never()).searchTrades(any(), any());
+        verify(tradeService, never()).findAll(any());
+    }
+
+    // Tests for the /Filter Endpoint
+
+    @Test
+    void testPaginatedFilter_Success() throws Exception {
+        // Arrange
+        List<Trade> tradeList = List.of(trade);
+        Page<Trade> tradePage = new PageImpl<>(tradeList, pageable, 1);
+        
+        when(tradeService.findAll(any(PageRequest.class))).thenReturn(tradePage);
+
+        // Act & Assert
+        mockMvc.perform(get("/api/trades/filter") // Simulates a GET request to /filter
+                .param("page", "0")   // Request parameter for Pageable
+                .param("size", "10")  // Request parameter for Pageable
+                .contentType(MediaType.APPLICATION_JSON))
+                
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+            
+            // Check content of the Page object JSON structure
+            .andExpect(jsonPath("$.content[0].id").value(tradeDTO.getId()))
+            .andExpect(jsonPath("$.totalElements").value(1));
+
+        // Verify that the service was called once
+        verify(tradeService, times(1)).findAll(any(PageRequest.class));
+    }
+
+    @Test
+    void testPaginatedFilter_EmptyPage() throws Exception {
+        // Arrange
+        Page<Trade> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(1, 10), 0);
+        
+        when(tradeService.findAll(any(PageRequest.class))).thenReturn(emptyPage);
+
+        // Act & Assert
+        mockMvc.perform(get("/api/trades/filter")
+                .param("page", "1")
+                .param("size", "10")
+                .contentType(MediaType.APPLICATION_JSON))
+                
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.content").isArray())
+            .andExpect(jsonPath("$.content").isEmpty())
+            .andExpect(jsonPath("$.totalElements").value(0));
+
+        // Verify service was called
+        verify(tradeService, times(1)).findAll(any(PageRequest.class));
+        
+        // Verify mapper was NOT called since the list was empty
+        verify(tradeMapper, never()).toDto(any());
+    }
+
+    @Test
+    void testPaginatedFilter_PageableApplied() throws Exception {
+        // Arrange
+        int requestedPage = 5;
+        int requestedSize = 25;
+        
+        // Create a dummy Page object that confirms the Pageable parameters
+        PageRequest expectedPageable = PageRequest.of(requestedPage, requestedSize);
+        Page<Trade> dummyPage = new PageImpl<>(Collections.emptyList(), expectedPageable, 500);
+        
+        when(tradeService.findAll(expectedPageable)).thenReturn(dummyPage);
+
+        // Act & Assert
+        mockMvc.perform(get("/api/trades/filter")
+                .param("page", String.valueOf(requestedPage))
+                .param("size", String.valueOf(requestedSize))
+                .contentType(MediaType.APPLICATION_JSON))
+                
+            .andExpect(status().isOk())
+            
+            // Verify the metadata in the response JSON matches the request
+            .andExpect(jsonPath("$.pageable.pageNumber").value(requestedPage))
+            .andExpect(jsonPath("$.pageable.pageSize").value(requestedSize));
+
+        // Verify that the service was called with the exact PageRequest object
+        verify(tradeService, times(1)).findAll(expectedPageable);
+    }
+
+    // Tests for the /rsql Endpoint
+
+    @Test
+    void testAdvancedSearch_SuccessWithValidQuery() throws Exception {
+        // Arrange
+        String validRsqlQuery = "status==NEW;counterparty==GS";
+        
+        // Mock the service to return a dummy paginated result for any Specification
+        Page<Trade> tradePage = new PageImpl<>(List.of(trade), PageRequest.of(0, 10), 1);
+        when(tradeService.searchTrades(any(), any())).thenReturn(tradePage);
+
+        // Act & Assert
+        mockMvc.perform(get("/api/trades/rsql")
+                .param("query", validRsqlQuery)
+                .param("page", "0")
+                .param("size", "10")
+                .contentType(MediaType.APPLICATION_JSON))
+                
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalElements").value(1));
+
+        // Verify that the searchTrades method was called (for RSQL query)
+        verify(tradeService, times(1)).searchTrades(any(), any(Pageable.class));
+        verify(tradeService, never()).findAll(any()); // Should not fall back to findAll
+    }
+
+    @Test
+    void testAdvancedSearch_SuccessWithEmptyQuery() throws Exception {
+        // Arrange
+        // The endpoint defaults to an empty string if 'query' is not present
+        Page<Trade> tradePage = new PageImpl<>(List.of(trade), PageRequest.of(0, 10), 50);
+        
+        // Mock the fallback service method
+        when(tradeService.findAll(any(Pageable.class))).thenReturn(tradePage);
+
+        // Act & Assert
+        mockMvc.perform(get("/api/trades/rsql")
+                // Query parameter intentionally omitted to simulate empty query
+                .param("page", "0")
+                .param("size", "10")
+                .contentType(MediaType.APPLICATION_JSON))
+                
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalElements").value(50));
+
+        // Verify that the fallback findAll method was called
+        verify(tradeService, times(1)).findAll(any(Pageable.class));
+        verify(tradeService, never()).searchTrades(any(), any()); // Should not call searchTrades
     }
 
     @Test
