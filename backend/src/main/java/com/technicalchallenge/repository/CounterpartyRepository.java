@@ -9,4 +9,7 @@ import java.util.Optional;
 @Repository
 public interface CounterpartyRepository extends JpaRepository<Counterparty, Long> {
     Optional<Counterparty> findByName(String name);
+
+    // Checks if a Counterparty exists by its ID and if its 'active' flag is true.
+    boolean existsByIdAndActive(Long id, boolean active);
 }
