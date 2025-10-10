@@ -9,4 +9,7 @@ import java.util.Optional;
 @Repository
 public interface TradeStatusRepository extends JpaRepository<TradeStatus, Long> {
     Optional<TradeStatus> findByTradeStatus(String tradeStatus);
+
+    // Custom query methods can be added here
+    boolean existsByTradeStatus(String tradeStatus);
 }

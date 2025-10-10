@@ -10,4 +10,6 @@ import java.util.Optional;
 public interface TradeTypeRepository extends JpaRepository<TradeType, Long> {
     // Custom query methods
     Optional<TradeType> findByTradeType(String tradeType);
+
+    boolean existsByTradeType(String tradeType);
 }
