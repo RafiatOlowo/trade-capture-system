@@ -28,8 +28,7 @@ public class DailySummaryDTO {
     private BigDecimal vsYesterdayTradeCountChange;
     private BigDecimal vsYesterdayNotionalChangePercent; 
 
-    // --- User and Book Activity ---
-    private Long traderId;
+    // --- Book Activity ---
     // Map of Book Name to the number of trades executed today in that book
     // Book-level activity summaries
     private Map<String, Long> bookActivitySummary; 
