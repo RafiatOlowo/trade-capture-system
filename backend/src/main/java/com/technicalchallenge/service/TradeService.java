@@ -32,12 +32,8 @@ import java.util.Optional;
 public class TradeService {
     private static final Logger logger = LoggerFactory.getLogger(TradeService.class);
 
-    private final TradeValidator tradeValidator;
-
-    public TradeService(TradeValidator tradeValidator) {
-        this.tradeValidator = tradeValidator;
-    }
-
+    @Autowired
+    private TradeValidator tradeValidator;
     @Autowired
     private TradeRepository tradeRepository;
     @Autowired
