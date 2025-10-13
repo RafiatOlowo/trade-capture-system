@@ -17,7 +17,7 @@ import java.util.Optional;
  * user privileges, and cross-leg consistency.
  */
 @Service
-public class TradeValidationService {
+public class TradeValidator {
 
     private final ApplicationUserRepository userRepository;
     private final BookRepository bookRepository;
@@ -27,7 +27,7 @@ public class TradeValidationService {
     private final TradeSubTypeRepository tradeSubTypeRepository;
 
 
-    public TradeValidationService(
+    public TradeValidator(
             ApplicationUserRepository userRepository,
             BookRepository bookRepository,
             CounterpartyRepository counterpartyRepository,
