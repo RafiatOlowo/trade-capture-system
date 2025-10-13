@@ -19,6 +19,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -32,10 +33,18 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import org.springframework.web.context.WebApplicationContext;
+import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 @ExtendWith(SpringExtension.class)
 @WebMvcTest(TradeController.class)
 public class TradeControllerTest {
+
+    // You will now need the WebApplicationContext
+    @Autowired
+    private WebApplicationContext context; 
 
     @Autowired
     private MockMvc mockMvc;
@@ -53,6 +62,18 @@ public class TradeControllerTest {
 
     @BeforeEach
     void setUp() {
+
+        // 1. Initialize MockMvc with Spring Security support
+        // This is necessary to correctly process security annotations and setup
+        this.mockMvc = MockMvcBuilders
+                .webAppContextSetup(context)
+                .apply(springSecurity()) // Applies Spring Security to MockMvc
+                .defaultRequest(post("/").with(user("testUser").roles("RISK_MANAGER"))) // <-- Set default user for POST
+                .defaultRequest(get("/").with(user("testUser").roles("RISK_MANAGER")))  // <-- Set default user for GET
+                .defaultRequest(put("/").with(user("testUser").roles("RISK_MANAGER")))  // <-- Set default user for PUT
+                .defaultRequest(delete("/").with(user("testUser").roles("RISK_MANAGER"))) // <-- Set default user for DELETE
+                .build();
+
         objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
 
@@ -373,7 +394,8 @@ public class TradeControllerTest {
         // When/Then
         mockMvc.perform(post("/api/trades")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(tradeDTO)))
+                        .content(objectMapper.writeValueAsString(tradeDTO))
+                        .with(csrf()))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.tradeId", is(1001)));
 
@@ -392,7 +414,8 @@ public class TradeControllerTest {
         // When/Then
         mockMvc.perform(post("/api/trades")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(invalidDTO)))
+                        .content(objectMapper.writeValueAsString(invalidDTO))
+                        .with(csrf()))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string("Trade date is required"));
 
@@ -410,7 +433,8 @@ public class TradeControllerTest {
         // When/Then
         mockMvc.perform(post("/api/trades")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(invalidDTO)))
+                        .content(objectMapper.writeValueAsString(invalidDTO))
+                        .with(csrf()))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string("Book and Counterparty are required"));
 
@@ -431,7 +455,8 @@ public class TradeControllerTest {
         // When/Then
         mockMvc.perform(put("/api/trades/{id}", tradeId)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(tradeDTO)))
+                        .content(objectMapper.writeValueAsString(tradeDTO))
+                        .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.tradeId", is(1001)));
 
@@ -447,7 +472,8 @@ public class TradeControllerTest {
         // When/Then
         mockMvc.perform(put("/api/trades/{id}", pathId)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(tradeDTO)))
+                        .content(objectMapper.writeValueAsString(tradeDTO))
+                        .with(csrf()))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string("Trade ID in path must match Trade ID in request body"));
 
@@ -461,7 +487,8 @@ public class TradeControllerTest {
 
         // When/Then
         mockMvc.perform(delete("/api/trades/1001")
-                        .contentType(MediaType.APPLICATION_JSON))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .with(csrf()))
                 .andExpect(status().isNoContent());
 
         verify(tradeService).deleteTrade(1001L);
@@ -477,7 +504,8 @@ public class TradeControllerTest {
         // When/Then
         mockMvc.perform(post("/api/trades")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(invalidDTO)))
+                        .content(objectMapper.writeValueAsString(invalidDTO))
+                        .with(csrf()))
                 .andExpect(status().isBadRequest());
 
         verify(tradeService, never()).createTrade(any(TradeDTO.class));
