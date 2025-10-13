@@ -301,6 +301,26 @@ public class TradeService {
 
     @Transactional
     public Trade amendTrade(Long tradeId, TradeDTO tradeDTO) {
+        // 1. Get User ID from Security Context (Required for every modifying method)
+        String userId = SecurityContextHolder.getContext().getAuthentication().getName();
+    
+        // 2. PRIVILEGE CHECK
+        if (!tradeValidator.validateUserPrivileges(userId, "AMEND", tradeDTO)) {
+            throw new InsufficientPrivilegeException("User " + userId + " does not have privileges to amend this trade.");
+        }
+
+        // 3. BUSINESS RULE VALIDATION
+        ValidationResult businessRulesResult = tradeValidator.validateTradeBusinessRules(tradeDTO);
+        if (!businessRulesResult.isSuccessful()) {
+            throw new TradeValidationException(businessRulesResult.getErrors());
+        }
+
+        // 4. LEG CONSISTENCY VALIDATION
+        ValidationResult legConsistencyResult = tradeValidator.validateTradeLegConsistency(tradeDTO.getTradeLegs());
+        if (!legConsistencyResult.isSuccessful()) {
+            throw new TradeValidationException(legConsistencyResult.getErrors());
+        }    
+
         logger.info("Amending trade with ID: {}", tradeId);
 
         Optional<Trade> existingTradeOpt = getTradeById(tradeId);
@@ -342,6 +362,14 @@ public class TradeService {
 
     @Transactional
     public Trade terminateTrade(Long tradeId) {
+
+        // 1. Get User ID
+        String userId = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        // 2. PRIVILEGE CHECK
+        if (!tradeValidator.validateUserPrivileges(userId, "TERMINATE", null)) { // tradeDTO can be null for this check
+            throw new InsufficientPrivilegeException("User " + userId + " does not have privileges to terminate this trade.");
+        }
         logger.info("Terminating trade with ID: {}", tradeId);
 
         Optional<Trade> tradeOpt = getTradeById(tradeId);
@@ -361,6 +389,14 @@ public class TradeService {
 
     @Transactional
     public Trade cancelTrade(Long tradeId) {
+
+        // 1. Get User ID
+        String userId = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        // 2. PRIVILEGE CHECK Use "TERMINATE" operation
+        if (!tradeValidator.validateUserPrivileges(userId, "TERMINATE", null)) { // tradeDTO can be null for this check
+            throw new InsufficientPrivilegeException("User " + userId + " does not have privileges to terminate this trade.");
+        }
         logger.info("Cancelling trade with ID: {}", tradeId);
 
         Optional<Trade> tradeOpt = getTradeById(tradeId);
