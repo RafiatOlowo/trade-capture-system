@@ -183,8 +183,18 @@ public class TradeValidator {
     // Enforces user privileges based on their role for a specific operation.
     // The parameter 'operation' use the TradeOperation enum.
      
-    public boolean validateUserPrivileges(String userId, TradeOperation operation, TradeDTO tradeDTO) {
+    public boolean validateUserPrivileges(String userId, String operation, TradeDTO tradeDTO) {
         if (userId == null || operation == null) {
+            return false;
+        }
+
+        // 1. Convert the input String operation to the TradeOperation enum.
+        TradeOperation tradeOperation;
+        try {
+            // Convert to uppercase to match enum constant names
+            tradeOperation = TradeOperation.valueOf(operation.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            // If the string doesn't match a valid enum constant, deny access
             return false;
         }
 
@@ -208,16 +218,16 @@ public class TradeValidator {
 
         switch (profileType) {
             case "TRADER_SALES":
-                return operation == TradeOperation.CREATE 
-                    || operation == TradeOperation.AMEND 
-                    || operation == TradeOperation.TERMINATE 
-                    || operation == TradeOperation.CANCEL 
-                    || operation == TradeOperation.VIEW;
+                return tradeOperation == TradeOperation.CREATE 
+                    || tradeOperation == TradeOperation.AMEND 
+                    || tradeOperation == TradeOperation.TERMINATE 
+                    || tradeOperation == TradeOperation.CANCEL 
+                    || tradeOperation == TradeOperation.VIEW;
             case "MO":
-                return operation == TradeOperation.AMEND 
-                    || operation == TradeOperation.VIEW;
+                return tradeOperation == TradeOperation.AMEND 
+                    || tradeOperation == TradeOperation.VIEW;
             case "SUPPORT":
-                return operation == TradeOperation.VIEW; 
+                return tradeOperation == TradeOperation.VIEW; 
             case "SUPERUSER":
                 // SUPERUSER: Full system access for all operations.
                 return true; 
