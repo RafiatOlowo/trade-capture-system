@@ -21,17 +21,24 @@ import com.technicalchallenge.repository.ScheduleRepository;
 import com.technicalchallenge.repository.TradeLegRepository;
 import com.technicalchallenge.repository.TradeRepository;
 import com.technicalchallenge.repository.TradeStatusRepository;
+import com.technicalchallenge.validation.TradeValidator;
+import com.technicalchallenge.validation.ValidationResult;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.Authentication;
 
 
 import java.math.BigDecimal;
@@ -85,6 +92,9 @@ class TradeServiceTest {
     @Mock
     private PayRecRepository payRecRepository;
 
+    @Mock
+    private TradeValidator tradeValidator; 
+
     @InjectMocks
     private TradeService tradeService;
 
@@ -102,6 +112,31 @@ class TradeServiceTest {
 
     @BeforeEach
     void setUp() {
+
+    // 1. Mock the Authentication object
+    Authentication authentication = Mockito.mock(Authentication.class);
+    // 2. Define what the mock returns when getName() is called
+    lenient().when(authentication.getName()).thenReturn("testUser"); 
+
+    // 3. Mock the SecurityContext
+    SecurityContext securityContext = Mockito.mock(SecurityContext.class);
+    // 4. Define what the context returns when getAuthentication() is called
+    lenient().when(securityContext.getAuthentication()).thenReturn(authentication); 
+
+    // 5. Set the mocked context globally for the test
+    SecurityContextHolder.setContext(securityContext);
+
+    // Create successful ValidationResult mocks
+    ValidationResult successfulResult = mock(ValidationResult.class);
+    lenient().when(successfulResult.isSuccessful()).thenReturn(true);
+    
+    // MOCK VALIDATOR: Assume privileges are always granted for these basic tests
+    lenient().when(tradeValidator.validateUserPrivileges(anyString(), anyString(), any())).thenReturn(true);
+    
+    // MOCK VALIDATOR: Assume business rules and leg consistency pass by default
+    lenient().when(tradeValidator.validateTradeBusinessRules(any())).thenReturn(successfulResult);
+    lenient().when(tradeValidator.validateTradeLegConsistency(any())).thenReturn(successfulResult);
+
         // Set up test data
         tradeDTO = new TradeDTO();
         tradeDTO.setTradeId(100001L);
