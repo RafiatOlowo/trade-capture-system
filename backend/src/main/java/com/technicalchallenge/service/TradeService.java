@@ -2,14 +2,21 @@ package com.technicalchallenge.service;
 
 import com.technicalchallenge.dto.TradeDTO;
 import com.technicalchallenge.dto.TradeLegDTO;
+import com.technicalchallenge.exception.InsufficientPrivilegeException;
+import com.technicalchallenge.exception.TradeValidationException;
 import com.technicalchallenge.model.*;
+import com.technicalchallenge.validation.ValidationResult;
+
 import com.technicalchallenge.repository.*;
+import com.technicalchallenge.validation.TradeValidator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.core.Authentication;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,6 +31,12 @@ import java.util.Optional;
 @Transactional
 public class TradeService {
     private static final Logger logger = LoggerFactory.getLogger(TradeService.class);
+
+    private final TradeValidator tradeValidator;
+
+    public TradeService(TradeValidator tradeValidator) {
+        this.tradeValidator = tradeValidator;
+    }
 
     @Autowired
     private TradeRepository tradeRepository;
@@ -72,6 +85,32 @@ public class TradeService {
 
     @Transactional
     public Trade createTrade(TradeDTO tradeDTO) {
+
+        // 1. Get the currently authenticated user's object
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        // 2. Extract the unique identifier (the userId)
+        // .getName() returns the username or principal ID
+        String userId = authentication.getName(); 
+
+        // 3. Privilege Validation
+        if (!tradeValidator.validateUserPrivileges(userId, "CREATE", tradeDTO)) {
+        // If the boolean is FALSE (validation fails), throw the exception
+        throw new InsufficientPrivilegeException("User " + userId + " does not have privileges to create this trade.");
+        }
+
+        // 4. Business Rules Validation
+        ValidationResult businessRulesResult = tradeValidator.validateTradeBusinessRules(tradeDTO);
+        if (!businessRulesResult.isSuccessful()) {
+            throw new TradeValidationException(businessRulesResult.getErrors());
+        }
+
+        // 5. Leg Consistency Validation
+        ValidationResult legConsistencyResult = tradeValidator.validateTradeLegConsistency(tradeDTO.getTradeLegs());
+        if (!legConsistencyResult.isSuccessful()) {
+            throw new TradeValidationException(legConsistencyResult.getErrors());
+        }
+        
         logger.info("Creating new trade with ID: {}", tradeDTO.getTradeId());
 
         // Generate trade ID if not provided
