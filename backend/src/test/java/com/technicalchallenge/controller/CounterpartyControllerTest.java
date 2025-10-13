@@ -12,6 +12,11 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.context.WebApplicationContext;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 import java.util.List;
 
@@ -25,6 +30,9 @@ public class CounterpartyControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private WebApplicationContext context;
+
     @MockBean
     private CounterpartyService counterpartyService;
 
@@ -33,6 +41,13 @@ public class CounterpartyControllerTest {
 
     @BeforeEach
     public void setup() {
+
+        this.mockMvc = MockMvcBuilders.webAppContextSetup(context)
+            .apply(springSecurity())
+            // Set default authenticated user for all requests (GET/POST/PUT/DELETE)
+            .defaultRequest(get("/").with(user("testUser").roles("RISK_MANAGER"))) 
+            .build();
+
         Counterparty counterparty = new Counterparty();
         counterparty.setId(1L);
         counterparty.setName("Counterparty 1");
@@ -49,7 +64,8 @@ public class CounterpartyControllerTest {
 
     @Test
     void shouldReturnAllCounterparties() throws Exception {
-        mockMvc.perform(get("/api/counterparties"))
+        mockMvc.perform(get("/api/counterparties")
+                .with(csrf()))
                 .andExpect(status().isOk());
     }
     // Add more tests for POST, PUT, DELETE as needed

@@ -18,6 +18,11 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.context.WebApplicationContext;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -39,6 +44,9 @@ public class CashflowControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private WebApplicationContext context;
+
     @MockBean
     private CashflowService cashflowService;
 
@@ -53,6 +61,15 @@ public class CashflowControllerTest {
 
     @BeforeEach
     void setUp() {
+
+        // This configures a default authenticated user for all requests
+        // and applies Spring Security processing.
+        this.mockMvc = MockMvcBuilders.webAppContextSetup(context)
+            .apply(springSecurity())
+            // Set default authenticated user for all requests (GET/POST/PUT/DELETE)
+            .defaultRequest(get("/").with(user("testUser").roles("RISK_MANAGER"))) 
+            .build();
+        
         objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
 
@@ -96,7 +113,8 @@ public class CashflowControllerTest {
 
         // When/Then
         mockMvc.perform(get("/api/cashflows")
-                .contentType(MediaType.APPLICATION_JSON))
+                .contentType(MediaType.APPLICATION_JSON)
+                .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)))
                 .andExpect(jsonPath("$[0].id", is(1)))
@@ -115,7 +133,8 @@ public class CashflowControllerTest {
         mockMvc.perform(get("/api/cashflows/1")
 
 
-                .contentType(MediaType.APPLICATION_JSON))
+                .contentType(MediaType.APPLICATION_JSON)
+                .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id", is(1)))
                 .andExpect(jsonPath("$.paymentValue", is(25000.0)))
@@ -131,7 +150,8 @@ public class CashflowControllerTest {
 
         // When/Then
         mockMvc.perform(get("/api/cashflows/999")
-                .contentType(MediaType.APPLICATION_JSON))
+                .contentType(MediaType.APPLICATION_JSON)
+                .with(csrf()))
                 .andExpect(status().isNotFound());
 
         verify(cashflowService).getCashflowById(999L);
@@ -145,7 +165,8 @@ public class CashflowControllerTest {
         // When/Then
         mockMvc.perform(post("/api/cashflows")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(cashflowDTO)))
+                .content(objectMapper.writeValueAsString(cashflowDTO))
+                .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id", is(1)))
                 .andExpect(jsonPath("$.paymentValue", is(25000.0)));
@@ -162,7 +183,8 @@ public class CashflowControllerTest {
         // When/Then
         mockMvc.perform(post("/api/cashflows")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(cashflowDTO)))
+                .content(objectMapper.writeValueAsString(cashflowDTO))
+                .with(csrf()))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string("Cashflow value must be positive"));
 
@@ -177,7 +199,8 @@ public class CashflowControllerTest {
         // When/Then
         mockMvc.perform(post("/api/cashflows")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(cashflowDTO)))
+                .content(objectMapper.writeValueAsString(cashflowDTO))
+                .with(csrf()))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string("Value date is required"));
 
@@ -191,7 +214,8 @@ public class CashflowControllerTest {
 
         // When/Then
         mockMvc.perform(delete("/api/cashflows/1")
-                .contentType(MediaType.APPLICATION_JSON))
+                .contentType(MediaType.APPLICATION_JSON)
+                .with(csrf()))
                 .andExpect(status().isNoContent());
 
         verify(cashflowService).deleteCashflow(1L);
@@ -220,7 +244,8 @@ public class CashflowControllerTest {
         // When/Then
         mockMvc.perform(post("/api/cashflows/generate")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(request)))
+                .content(objectMapper.writeValueAsString(request))
+                .with(csrf()))
                 .andExpect(status().isOk());
     }
 
@@ -235,7 +260,8 @@ public class CashflowControllerTest {
         // When/Then
         mockMvc.perform(post("/api/cashflows/generate")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(request)))
+                .content(objectMapper.writeValueAsString(request))
+                .with(csrf()))
                 .andExpect(status().isBadRequest());
     }
 }
