@@ -12,6 +12,11 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.context.WebApplicationContext;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 import java.util.List;
 
@@ -22,6 +27,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ExtendWith(SpringExtension.class)
 @WebMvcTest(BookController.class)
 public class BookControllerTest {
+
+    @Autowired
+    private WebApplicationContext context;
+
     @Autowired
     private MockMvc mockMvc;
 
@@ -33,6 +42,13 @@ public class BookControllerTest {
 
     @BeforeEach
     public void setup() {
+
+        this.mockMvc = MockMvcBuilders.webAppContextSetup(context)
+        .apply(springSecurity())
+        // Set default authenticated user for all requests (GET/POST/PUT/DELETE)
+        .defaultRequest(get("/").with(user("testUser").roles("RISK_MANAGER"))) 
+        .build();
+
         Book book = new Book();
         book.setBookName("Book Name");
         book.setId(1L);
@@ -55,7 +71,8 @@ public class BookControllerTest {
 
     @Test
     void shouldReturnAllBooks() throws Exception {
-        mockMvc.perform(get("/api/books"))
+        mockMvc.perform(get("/api/books")
+                .with(csrf()))
                 .andExpect(status().isOk());
     }
     // Add more tests for POST, PUT, DELETE as needed

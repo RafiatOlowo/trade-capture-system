@@ -12,6 +12,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.context.WebApplicationContext;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 import java.util.List;
 
@@ -25,6 +30,9 @@ public class UserControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private WebApplicationContext context;
+
     @MockBean
     private ApplicationUserService applicationUserService;
     @MockBean
@@ -35,6 +43,13 @@ public class UserControllerTest {
 
     @BeforeEach
     public void setup() {
+
+        this.mockMvc = MockMvcBuilders.webAppContextSetup(context)
+            .apply(springSecurity())
+            // Set default authenticated user for all requests (GET/POST/PUT/DELETE)
+            .defaultRequest(get("/").with(user("testUser").roles("RISK_MANAGER"))) 
+            .build();
+
         ApplicationUser applicationUser = new ApplicationUser();
         applicationUser.setId(2L);
         applicationUser.setActive(true);
@@ -64,7 +79,8 @@ public class UserControllerTest {
 
     @Test
     void shouldReturnAllUsers() throws Exception {
-        mockMvc.perform(get("/api/users"))
+        mockMvc.perform(get("/api/users")
+                .with(csrf()))
                 .andExpect(status().isOk());
     }
     // Add more tests for POST, PUT, DELETE as needed

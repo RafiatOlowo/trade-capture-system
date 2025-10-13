@@ -2,14 +2,21 @@ package com.technicalchallenge.service;
 
 import com.technicalchallenge.dto.TradeDTO;
 import com.technicalchallenge.dto.TradeLegDTO;
+import com.technicalchallenge.exception.InsufficientPrivilegeException;
+import com.technicalchallenge.exception.TradeValidationException;
 import com.technicalchallenge.model.*;
+import com.technicalchallenge.validation.ValidationResult;
+
 import com.technicalchallenge.repository.*;
+import com.technicalchallenge.validation.TradeValidator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.core.Authentication;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,6 +32,8 @@ import java.util.Optional;
 public class TradeService {
     private static final Logger logger = LoggerFactory.getLogger(TradeService.class);
 
+    @Autowired
+    private TradeValidator tradeValidator;
     @Autowired
     private TradeRepository tradeRepository;
     @Autowired
@@ -72,6 +81,32 @@ public class TradeService {
 
     @Transactional
     public Trade createTrade(TradeDTO tradeDTO) {
+
+        // 1. Get the currently authenticated user's object
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        // 2. Extract the unique identifier (the userId)
+        // .getName() returns the username or principal ID
+        String userId = authentication.getName(); 
+
+        // 3. Privilege Validation
+        if (!tradeValidator.validateUserPrivileges(userId, "CREATE", tradeDTO)) {
+        // If the boolean is FALSE (validation fails), throw the exception
+        throw new InsufficientPrivilegeException("User " + userId + " does not have privileges to create this trade.");
+        }
+
+        // 4. Business Rules Validation
+        ValidationResult businessRulesResult = tradeValidator.validateTradeBusinessRules(tradeDTO);
+        if (!businessRulesResult.isSuccessful()) {
+            throw new TradeValidationException(businessRulesResult.getErrors());
+        }
+
+        // 5. Leg Consistency Validation
+        ValidationResult legConsistencyResult = tradeValidator.validateTradeLegConsistency(tradeDTO.getTradeLegs());
+        if (!legConsistencyResult.isSuccessful()) {
+            throw new TradeValidationException(legConsistencyResult.getErrors());
+        }
+        
         logger.info("Creating new trade with ID: {}", tradeDTO.getTradeId());
 
         // Generate trade ID if not provided
@@ -262,6 +297,26 @@ public class TradeService {
 
     @Transactional
     public Trade amendTrade(Long tradeId, TradeDTO tradeDTO) {
+        // 1. Get User ID from Security Context (Required for every modifying method)
+        String userId = SecurityContextHolder.getContext().getAuthentication().getName();
+    
+        // 2. PRIVILEGE CHECK
+        if (!tradeValidator.validateUserPrivileges(userId, "AMEND", tradeDTO)) {
+            throw new InsufficientPrivilegeException("User " + userId + " does not have privileges to amend this trade.");
+        }
+
+        // 3. BUSINESS RULE VALIDATION
+        ValidationResult businessRulesResult = tradeValidator.validateTradeBusinessRules(tradeDTO);
+        if (!businessRulesResult.isSuccessful()) {
+            throw new TradeValidationException(businessRulesResult.getErrors());
+        }
+
+        // 4. LEG CONSISTENCY VALIDATION
+        ValidationResult legConsistencyResult = tradeValidator.validateTradeLegConsistency(tradeDTO.getTradeLegs());
+        if (!legConsistencyResult.isSuccessful()) {
+            throw new TradeValidationException(legConsistencyResult.getErrors());
+        }    
+
         logger.info("Amending trade with ID: {}", tradeId);
 
         Optional<Trade> existingTradeOpt = getTradeById(tradeId);
@@ -303,6 +358,14 @@ public class TradeService {
 
     @Transactional
     public Trade terminateTrade(Long tradeId) {
+
+        // 1. Get User ID
+        String userId = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        // 2. PRIVILEGE CHECK
+        if (!tradeValidator.validateUserPrivileges(userId, "TERMINATE", null)) { // tradeDTO can be null for this check
+            throw new InsufficientPrivilegeException("User " + userId + " does not have privileges to terminate this trade.");
+        }
         logger.info("Terminating trade with ID: {}", tradeId);
 
         Optional<Trade> tradeOpt = getTradeById(tradeId);
@@ -322,6 +385,14 @@ public class TradeService {
 
     @Transactional
     public Trade cancelTrade(Long tradeId) {
+
+        // 1. Get User ID
+        String userId = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        // 2. PRIVILEGE CHECK Use "TERMINATE" operation
+        if (!tradeValidator.validateUserPrivileges(userId, "TERMINATE", null)) { // tradeDTO can be null for this check
+            throw new InsufficientPrivilegeException("User " + userId + " does not have privileges to terminate this trade.");
+        }
         logger.info("Cancelling trade with ID: {}", tradeId);
 
         Optional<Trade> tradeOpt = getTradeById(tradeId);

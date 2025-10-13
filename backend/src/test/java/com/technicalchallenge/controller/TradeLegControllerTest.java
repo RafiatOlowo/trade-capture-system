@@ -18,6 +18,11 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.context.WebApplicationContext;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 import java.math.BigDecimal;
 import java.util.Arrays;
@@ -37,6 +42,9 @@ public class TradeLegControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private WebApplicationContext context;
+
     @MockBean
     private TradeLegService tradeLegService;
 
@@ -52,6 +60,14 @@ public class TradeLegControllerTest {
 
     @BeforeEach
     void setUp() {
+
+        // This configures a default authenticated user for all requests
+        // and applies Spring Security processing.
+        this.mockMvc = MockMvcBuilders.webAppContextSetup(context)
+            .apply(springSecurity())
+            // Set default authenticated user for all requests (GET/POST/PUT/DELETE)
+            .defaultRequest(get("/").with(user("testUser").roles("RISK_MANAGER"))) 
+            .build();
         objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
 
@@ -98,7 +114,8 @@ public class TradeLegControllerTest {
 
         // When/Then
         mockMvc.perform(get("/api/tradeLegs")
-                .contentType(MediaType.APPLICATION_JSON))
+                .contentType(MediaType.APPLICATION_JSON)
+                .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)))
                 .andExpect(jsonPath("$[0].legId", is(1)))
@@ -115,7 +132,8 @@ public class TradeLegControllerTest {
 
         // When/Then
         mockMvc.perform(get("/api/tradeLegs/1")
-                .contentType(MediaType.APPLICATION_JSON))
+                .contentType(MediaType.APPLICATION_JSON)
+                .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.legId", is(1)))
                 .andExpect(jsonPath("$.notional", is(1000000.0)))
@@ -131,7 +149,8 @@ public class TradeLegControllerTest {
 
         // When/Then
         mockMvc.perform(get("/api/tradeLegs/999")
-                .contentType(MediaType.APPLICATION_JSON))
+                .contentType(MediaType.APPLICATION_JSON)
+                .with(csrf()))
                 .andExpect(status().isNotFound());
 
         verify(tradeLegService).getTradeLegById(999L);
@@ -145,7 +164,8 @@ public class TradeLegControllerTest {
         // When/Then
         mockMvc.perform(post("/api/tradeLegs")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(tradeLegDTO)))
+                .content(objectMapper.writeValueAsString(tradeLegDTO))
+                .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.legId", is(1)))
                 .andExpect(jsonPath("$.notional", is(1000000.0)));
@@ -161,7 +181,8 @@ public class TradeLegControllerTest {
         // When/Then
         mockMvc.perform(post("/api/tradeLegs")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(tradeLegDTO)))
+                .content(objectMapper.writeValueAsString(tradeLegDTO))
+                .with(csrf()))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string("Notional must be positive"));
 
@@ -176,7 +197,8 @@ public class TradeLegControllerTest {
         // When/Then
         mockMvc.perform(post("/api/tradeLegs")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(tradeLegDTO)))
+                .content(objectMapper.writeValueAsString(tradeLegDTO))
+                .with(csrf()))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string("Currency and Leg Rate Type are required"));
 
@@ -191,7 +213,8 @@ public class TradeLegControllerTest {
         // When/Then
         mockMvc.perform(post("/api/tradeLegs")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(tradeLegDTO)))
+                .content(objectMapper.writeValueAsString(tradeLegDTO))
+                .with(csrf()))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string("Currency and Leg Rate Type are required"));
 
@@ -205,7 +228,8 @@ public class TradeLegControllerTest {
 
         // When/Then
         mockMvc.perform(delete("/api/tradeLegs/1")
-                .contentType(MediaType.APPLICATION_JSON))
+                .contentType(MediaType.APPLICATION_JSON)
+                .with(csrf()))
                 .andExpect(status().isNoContent());
 
         verify(tradeLegService).deleteTradeLeg(1L);
