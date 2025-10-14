@@ -3,8 +3,10 @@ package com.technicalchallenge.service;
 import com.technicalchallenge.dto.DailySummaryDTO;
 import com.technicalchallenge.dto.TradeSummaryDTO;
 import com.technicalchallenge.dto.TradeDTO;
+import com.technicalchallenge.model.ApplicationUser;
 import com.technicalchallenge.model.Trade; 
 import com.technicalchallenge.mapper.TradeMapper;
+import com.technicalchallenge.repository.ApplicationUserRepository;
 import com.technicalchallenge.repository.TradeRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -17,6 +19,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.Optional;
 
 /**
  * Service responsible for fetching, filtering, and aggregating trade data 
@@ -29,14 +32,26 @@ public class TraderDashboardService {
     private TradeRepository tradeRepository; 
 
     @Autowired
+    private ApplicationUserRepository applicationUserRepository;
+
+    @Autowired
     private TradeMapper tradeMapper;
+
+    public Long getTraderIdByLoginId(String loginId) {
+        
+        // Look up the ApplicationUser entity using the login ID
+        Optional<ApplicationUser> user = applicationUserRepository.findByLoginId(loginId);
+
+        // Return the internal primary key (id) if the user is found, otherwise return null.
+        return user.map(ApplicationUser::getId).orElse(null);
+    }
 
     // --- Blotter Functions ---
 
     /**
      * Retrieves a paginated list of trades for the specified trader.
      */
-    public Page<TradeDTO> getMyTrades(Long traderUserId, Pageable pageable) {
+    public Page<TradeDTO> getUserTrades(Long traderUserId, Pageable pageable) {
         Page<Trade> tradePage = tradeRepository.findByTraderUserId(traderUserId, pageable);
         return tradePage.map(tradeMapper::toDto);
     }
