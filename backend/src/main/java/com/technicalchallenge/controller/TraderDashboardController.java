@@ -29,8 +29,11 @@ public class TraderDashboardController {
 
     private static final Logger log = LoggerFactory.getLogger(TraderDashboardController.class);
 
-    @Autowired
-    private TraderDashboardService dashboardService;
+    private final TraderDashboardService dashboardService; 
+
+    public TraderDashboardController(TraderDashboardService dashboardService) {
+        this.dashboardService = dashboardService;
+    }
 
     // Helper method to retrieve the authenticated trader's internal user ID.
     private Long getCurrentTraderUserId() {
