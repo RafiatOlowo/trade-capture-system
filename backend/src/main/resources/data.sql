@@ -17,12 +17,12 @@ INSERT INTO pay_rec (id, pay_rec) VALUES (1000, 'Pay'), (1001, 'Receive');
 -- Users
 INSERT INTO user_profile (id, user_type) VALUES (1000,'TRADER_SALES'), (1001,'SUPPORT'),(1002,'ADMIN'),(1003,'MO'),(1004,'SUPERUSER');
 INSERT INTO application_user (id, first_name, last_name, login_id, password, active, user_profile_id, version, last_modified_timestamp) VALUES
-  (1000, 'Alice', 'Smith', 'alice', 'password', true, 1002, 1, '2025-06-02T00:00:00'),
-  (1001, 'Bob', 'Jones', 'bob', 'password', true, 1001, 1, '2025-06-02T00:00:00'),
-  (1003, 'Simon', 'King', 'simon', 'password', true, 1000, 1, '2025-06-02T00:00:00'),
-  (1004, 'Ashley', 'Lovegood', 'ashley', 'password', true, 1003, 1, '2025-06-02T00:00:00'),
-  (1005, 'Joey', 'Tribbiani', 'joey', 'password', true, 1000, 1, '2025-06-02T00:00:00'),
-  (1006, 'Stuart', 'McGill', 'stuart', 'password', true, 1004, 1, '2025-06-02T00:00:00');
+  (1000, 'Alice', 'Smith', 'alice', '{bcrypt}$2a$10$xC9TxIWSarmJJHncy/ZyDOLe6tJ4LE6bw22yKYOItqjzGiIbWspEa', true, 1002, 1, '2025-06-02T00:00:00'),
+  (1001, 'Bob', 'Jones', 'bob', '{bcrypt}$2a$10$xC9TxIWSarmJJHncy/ZyDOLe6tJ4LE6bw22yKYOItqjzGiIbWspEa', true, 1001, 1, '2025-06-02T00:00:00'),
+  (1003, 'Simon', 'King', 'simon', '{bcrypt}$2a$10$xC9TxIWSarmJJHncy/ZyDOLe6tJ4LE6bw22yKYOItqjzGiIbWspEa', true, 1000, 1, '2025-06-02T00:00:00'),
+  (1004, 'Ashley', 'Lovegood', 'ashley', '{bcrypt}$2a$10$xC9TxIWSarmJJHncy/ZyDOLe6tJ4LE6bw22yKYOItqjzGiIbWspEa', true, 1003, 1, '2025-06-02T00:00:00'),
+  (1005, 'Joey', 'Tribbiani', 'joey', '{bcrypt}$2a$10$xC9TxIWSarmJJHncy/ZyDOLe6tJ4LE6bw22yKYOItqjzGiIbWspEa', true, 1000, 1, '2025-06-02T00:00:00'),
+  (1006, 'Stuart', 'McGill', 'stuart', '{bcrypt}$2a$10$xC9TxIWSarmJJHncy/ZyDOLe6tJ4LE6bw22yKYOItqjzGiIbWspEa', true, 1004, 1, '2025-06-02T00:00:00');
 
 -- Privileges
 INSERT INTO privilege (id, name) VALUES (1000, 'BOOK_TRADE'), (1001, 'AMEND_TRADE'),(1002, 'READ_TRADE'), (1003, 'READ_USER'), (1004,'WRITE_USER'), (1005,'READ_STATIC_DATA'), (1006,'WRITE_STATIC_DATA');

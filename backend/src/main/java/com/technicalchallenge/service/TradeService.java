@@ -14,6 +14,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.core.Authentication;
@@ -82,12 +83,8 @@ public class TradeService {
     @Transactional
     public Trade createTrade(TradeDTO tradeDTO) {
 
-        // 1. Get the currently authenticated user's object
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-
-        // 2. Extract the unique identifier (the userId)
-        // .getName() returns the username or principal ID
-        String userId = authentication.getName(); 
+        // 1. Get the User ID from the Security Context
+        String userId = getCurrentUserId();
 
         // 3. Privilege Validation
         if (!tradeValidator.validateUserPrivileges(userId, "CREATE", tradeDTO)) {
@@ -297,8 +294,8 @@ public class TradeService {
 
     @Transactional
     public Trade amendTrade(Long tradeId, TradeDTO tradeDTO) {
-        // 1. Get User ID from Security Context (Required for every modifying method)
-        String userId = SecurityContextHolder.getContext().getAuthentication().getName();
+        // 1. Get the User ID from the Security Context
+        String userId = getCurrentUserId();
     
         // 2. PRIVILEGE CHECK
         if (!tradeValidator.validateUserPrivileges(userId, "AMEND", tradeDTO)) {
@@ -359,8 +356,8 @@ public class TradeService {
     @Transactional
     public Trade terminateTrade(Long tradeId) {
 
-        // 1. Get User ID
-        String userId = SecurityContextHolder.getContext().getAuthentication().getName();
+        // 1. Get the User ID from the Security Context
+        String userId = getCurrentUserId();
 
         // 2. PRIVILEGE CHECK
         if (!tradeValidator.validateUserPrivileges(userId, "TERMINATE", null)) { // tradeDTO can be null for this check
@@ -386,8 +383,8 @@ public class TradeService {
     @Transactional
     public Trade cancelTrade(Long tradeId) {
 
-        // 1. Get User ID
-        String userId = SecurityContextHolder.getContext().getAuthentication().getName();
+        /// 1. Get the User ID from the Security Context
+        String userId = getCurrentUserId();
 
         // 2. PRIVILEGE CHECK Use "TERMINATE" operation
         if (!tradeValidator.validateUserPrivileges(userId, "TERMINATE", null)) { // tradeDTO can be null for this check
@@ -671,5 +668,17 @@ public class TradeService {
     
     public Page<Trade> searchTrades(Specification<Trade> spec, Pageable pageable) {
         return tradeRepository.findAll(spec, pageable);
+    }
+
+    // Inside TradeService.java (Add this private helper method)
+
+    private String getCurrentUserId() {
+        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+    
+        if (principal instanceof UserDetails) {
+            return ((UserDetails) principal).getUsername();
+        } 
+        // Handle cases where the principal is just the username string (e.g., anonymous user)
+        return principal.toString(); 
     }
 }
