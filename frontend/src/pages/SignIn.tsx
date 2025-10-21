@@ -33,6 +33,8 @@ const SignIn = () => {
                     userStore.user = user;
                     userStore.authorization = user.userProfile;
                     userStore.isLoading = false;
+                    localStorage.setItem('user', JSON.stringify(user));
+                    localStorage.setItem('userProfile', user.userProfile);
                     console.log("User details fetched successfully:", user);
                     console.log("User profile:", userStore.authorization);
                     setLoading(false)
