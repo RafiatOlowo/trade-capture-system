@@ -201,7 +201,37 @@ class TradeServiceTest {
     // UNIT TESTS FOR calculateCashflowValue(TradeLeg leg, int monthsInterval)
     // -------------------------------------------------------------------------
 
-   @Test
+    @Test
+    void calculateCashflowValue_FixedLeg_Quarterly_ValueCheck() throws Exception {
+        // GIVEN: Fixed Leg (Quarterly Interval = 3 months)
+        // Formula: (Notional * Rate * Months) / 12
+        // Input: Notional = 10,000,000, Rate = 3.5% (0.035), Months = 3
+        // Expected: (10,000,000 * 0.035 * 3) / 12 = 1,050,000 / 12 = 87,500.00
+        
+        TradeLeg fixedLeg = new TradeLeg();
+        fixedLeg.setNotional(BigDecimal.valueOf(10000000)); // $10,000,000
+        fixedLeg.setRate(3.5); // 3.5%
+        
+        LegType fixedType = new LegType();
+        fixedType.setType("Fixed");
+        fixedLeg.setLegRateType(fixedType);
+        
+        int monthsInterval = 3; // Quarterly
+
+        // WHEN
+        BigDecimal result = callCalculateCashflowValue(fixedLeg, monthsInterval);
+
+        // THEN
+        // The calculation yields exactly 87,500. The service scales to 10 decimal places.
+        // The value 87500.0000000000 is mathematically exact.
+        BigDecimal expectedValue = new BigDecimal("87500.0000000000"); // Enforce 10 decimal places
+        
+        // Use compareTo(0) for safe BigDecimal equality check
+        assertEquals(0, result.compareTo(expectedValue), 
+            "Cashflow value for 10M at 3.5% quarterly must be 87,500.00.");
+    }
+
+    @Test
     void calculateCashflowValue_FixedLeg_Monthly_Success() throws Exception {
         // GIVEN: Fixed Leg (Monthly Interval = 1 month)
         // Formula: (Notional * Rate * Months) / 12
