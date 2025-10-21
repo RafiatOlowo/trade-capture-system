@@ -1,5 +1,6 @@
 package com.technicalchallenge.validation;
 
+import com.technicalchallenge.dto.CashflowDTO;
 import com.technicalchallenge.dto.TradeDTO;
 import com.technicalchallenge.dto.TradeLegDTO;
 import com.technicalchallenge.model.ApplicationUser;
@@ -170,6 +171,28 @@ public class TradeValidator {
         String currency2 = leg2.getCurrency();
         if (currency1 == null || currency2 == null || !currency1.equals(currency2)) {
             result.addError("Cross-leg inconsistency: Currency must be identical across both legs for a standard swap.");
+        }
+
+        // Implicit Maturity Date Consistency
+        if (leg1.getCashflows() == null || leg2.getCashflows() == null || leg1.getCashflows().isEmpty() || leg2.getCashflows().isEmpty()) {
+            result.addError("Cross-leg inconsistency: Cashflows must be provided on both legs to determine implicit maturity.");
+        } else {
+            // Find the maximum valueDate from the cashflows of each leg
+            LocalDate maturity1 = leg1.getCashflows().stream()
+                .map(CashflowDTO::getValueDate)
+                .filter(date -> date != null)
+                .max(LocalDate::compareTo)
+                .orElse(null);
+
+            LocalDate maturity2 = leg2.getCashflows().stream()
+                .map(CashflowDTO::getValueDate)
+                .filter(date -> date != null)
+                .max(LocalDate::compareTo)
+                .orElse(null);
+
+            if (maturity1 == null || maturity2 == null || !maturity1.equals(maturity2)) {
+                result.addError("Cross-leg inconsistency: Implicit Maturity Date (last cashflow value date) must be identical across both legs.");
+            }
         }
 
         // Floating/Fixed leg requirements (Index for Float, Rate for Fixed)

@@ -38,6 +38,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.Authentication;
 
 
@@ -113,29 +114,31 @@ class TradeServiceTest {
     @BeforeEach
     void setUp() {
 
-    // 1. Mock the Authentication object
-    Authentication authentication = Mockito.mock(Authentication.class);
-    // 2. Define what the mock returns when getName() is called
-    lenient().when(authentication.getName()).thenReturn("testUser"); 
+        // 1. Define the principal object
+        String principalUsername = "testUser";
+        
+        // 2. Mock the Authentication object
+        Authentication authentication = Mockito.mock(Authentication.class);
+        lenient().when(authentication.getName()).thenReturn(principalUsername);
+        lenient().when(authentication.getPrincipal()).thenReturn(principalUsername);
 
-    // 3. Mock the SecurityContext
-    SecurityContext securityContext = Mockito.mock(SecurityContext.class);
-    // 4. Define what the context returns when getAuthentication() is called
-    lenient().when(securityContext.getAuthentication()).thenReturn(authentication); 
+        // 3. Mock the SecurityContext
+        SecurityContext securityContext = Mockito.mock(SecurityContext.class);
+        lenient().when(securityContext.getAuthentication()).thenReturn(authentication); 
 
-    // 5. Set the mocked context globally for the test
-    SecurityContextHolder.setContext(securityContext);
+        // 4. Set the mocked context globally for the test
+        SecurityContextHolder.setContext(securityContext);
 
-    // Create successful ValidationResult mocks
-    ValidationResult successfulResult = mock(ValidationResult.class);
-    lenient().when(successfulResult.isSuccessful()).thenReturn(true);
+        // Create successful ValidationResult mocks
+        ValidationResult successfulResult = mock(ValidationResult.class);
+        lenient().when(successfulResult.isSuccessful()).thenReturn(true);
     
-    // MOCK VALIDATOR: Assume privileges are always granted for these basic tests
-    lenient().when(tradeValidator.validateUserPrivileges(anyString(), anyString(), any())).thenReturn(true);
+        // MOCK VALIDATOR: Assume privileges are always granted for these basic tests
+        lenient().when(tradeValidator.validateUserPrivileges(anyString(), anyString(), any())).thenReturn(true);
     
-    // MOCK VALIDATOR: Assume business rules and leg consistency pass by default
-    lenient().when(tradeValidator.validateTradeBusinessRules(any())).thenReturn(successfulResult);
-    lenient().when(tradeValidator.validateTradeLegConsistency(any())).thenReturn(successfulResult);
+        // MOCK VALIDATOR: Assume business rules and leg consistency pass by default
+        lenient().when(tradeValidator.validateTradeBusinessRules(any())).thenReturn(successfulResult);
+        lenient().when(tradeValidator.validateTradeLegConsistency(any())).thenReturn(successfulResult);
 
         // Set up test data
         tradeDTO = new TradeDTO();
@@ -157,16 +160,16 @@ class TradeServiceTest {
 
         tradeDTO.setTradeLegs(Arrays.asList(leg1, leg2));
         
-        // Configure the DTO to explicitly use a Monthly schedule
         tradeDTO.getTradeLegs().forEach(leg -> {
-            // "Monthly" is recognized by the parseSchedule method
             leg.setCalculationPeriodSchedule("Monthly"); 
+            // leg.setLegType("Fixed"); // Needed for cashflow calculation
         });
         
         mockBook = new Book();
         mockCounterparty = new Counterparty();
         mockTradeStatus = new TradeStatus();
         mockTraderUser = new ApplicationUser();
+
         mockTradeLeg = new TradeLeg();
         mockTradeLeg.setLegId(1L);
 
@@ -177,7 +180,6 @@ class TradeServiceTest {
         tradeList = List.of(trade);
         tradePage = new PageImpl<>(tradeList);
         
-        // 2. Setup Pageable object
         pageable = PageRequest.of(0, 10);
     }
 
@@ -210,6 +212,7 @@ class TradeServiceTest {
 
         // When & Then
         RuntimeException exception = assertThrows(RuntimeException.class, () -> {
+     
             tradeService.createTrade(tradeDTO);
         });
 
@@ -227,7 +230,7 @@ class TradeServiceTest {
             tradeService.createTrade(tradeDTO);
         });
 
-        assertTrue(exception.getMessage().contains("exactly 2 legs"));
+        assertTrue(exception.getMessage().contains("Trade must have exactly 2 legs"));
     }
 
     @Test
@@ -282,7 +285,7 @@ class TradeServiceTest {
             tradeService.amendTrade(999L, tradeDTO);
         });
 
-        assertTrue(exception.getMessage().contains("Trade not found"));
+        assertTrue(exception.getMessage().contains("Trade not found: 999"));
     }
 
     // This test has a deliberate bug for candidates to find and fix

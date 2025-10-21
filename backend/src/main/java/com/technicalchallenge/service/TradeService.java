@@ -670,15 +670,26 @@ public class TradeService {
         return tradeRepository.findAll(spec, pageable);
     }
 
-    // Inside TradeService.java (Add this private helper method)
 
     private String getCurrentUserId() {
-        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
     
-        if (principal instanceof UserDetails) {
-            return ((UserDetails) principal).getUsername();
-        } 
-        // Handle cases where the principal is just the username string (e.g., anonymous user)
+    if (authentication == null) {
+        logger.warn("No Authentication object found in SecurityContext.");
+        return "anonymous"; 
+    }
+    
+    Object principal = authentication.getPrincipal();
+
+    if (principal instanceof UserDetails) {
+        return ((UserDetails) principal).getUsername();
+    } 
+    
+    if (principal != null) {
         return principal.toString(); 
+    }
+    
+    logger.warn("Principal object is null or of unknown type.");
+    return "anonymous";
     }
 }

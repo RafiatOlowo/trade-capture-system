@@ -32,4 +32,18 @@ public class DailySummaryDTO {
     // Map of Book Name to the number of trades executed today in that book
     // Book-level activity summaries
     private Map<String, Long> bookActivitySummary; 
+
+    public DailySummaryDTO(Long todaysTradeCount, BigDecimal todaysTotalNotionalUSD, BigDecimal dailyRealizedPL) {
+        
+        // Initialize the core fields passed in
+        this.todaysTradeCount = todaysTradeCount;
+        this.todaysTotalNotionalUSD = todaysTotalNotionalUSD;
+        this.dailyRealizedPL = dailyRealizedPL;
+        
+        // Initialize the remaining non-mandatory fields:
+        this.reportDate = LocalDate.now();
+        this.vsYesterdayTradeCountChange = BigDecimal.ZERO;
+        this.vsYesterdayNotionalChangePercent = BigDecimal.ZERO;
+        this.bookActivitySummary = Map.of();
+    }
 }

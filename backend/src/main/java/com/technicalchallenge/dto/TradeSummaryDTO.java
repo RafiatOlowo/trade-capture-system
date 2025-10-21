@@ -31,4 +31,15 @@ public class TradeSummaryDTO {
     
     // Mark-to-Market (P/L)
     private BigDecimal portfolioMTM;
+
+    public TradeSummaryDTO(Map<String, BigDecimal> totalNotionalByCurrency, BigDecimal portfolioMTM, BigDecimal totalVaR) {
+        this.totalNotionalByCurrency = totalNotionalByCurrency;
+        this.portfolioMTM = portfolioMTM;
+        this.totalVaR = totalVaR;
+        
+        // Initialize Maps to prevent NullPointerExceptions in the service layer if not set
+        this.tradeCountByStatus = Map.of();
+        this.tradeCountByType = Map.of();
+        this.tradeCountByCounterparty = Map.of();
+    }
 }
