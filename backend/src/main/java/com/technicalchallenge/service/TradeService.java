@@ -22,6 +22,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -625,13 +626,39 @@ public class TradeService {
         String legType = leg.getLegRateType().getType();
 
         if ("Fixed".equals(legType)) {
-            double notional = leg.getNotional().doubleValue();
-            double rate = leg.getRate();
-            double months = monthsInterval;
+            // Get the notional directly as a BigDecimal
+            BigDecimal notional = leg.getNotional();
+            
+            // Get the rate as a primitive for the conversion logic
+            double ratePrimitive = leg.getRate();
 
-            double result = (notional * rate * months) / 12;
+            // Convert the rate to a decimal (3.5% -> 0.035).
+            // Convert it to BigDecimal after dividing by 100.
+            BigDecimal rate = BigDecimal.valueOf(ratePrimitive).divide(
+                new BigDecimal(100), 
+                10, // Define a scale for precision after division
+                RoundingMode.HALF_UP
+            );
+            
+            // Convert the primitive 'monthsInterval' into BigDecimal for calculations.
+            BigDecimal months = new BigDecimal(monthsInterval);
 
-            return BigDecimal.valueOf(result);
+            // CORRECT CALCULATION LOGIC since it's now BigDecimal
+            // Formula: (Notional * Rate * Months) / 12
+            
+            // Calculate (Notional * Rate)
+            BigDecimal cashflowBase = notional.multiply(rate);
+
+            // Calculate (CashflowBase * Months)
+            BigDecimal cashflowValue = cashflowBase.multiply(months);
+
+            // Calculate (Result / 12)
+            return cashflowValue.divide(
+                new BigDecimal(12), 
+                10, 
+                RoundingMode.HALF_UP
+            );
+
         } else if ("Floating".equals(legType)) {
             return BigDecimal.ZERO;
         }
