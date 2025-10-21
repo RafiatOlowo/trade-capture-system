@@ -12,6 +12,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.security.test.context.support.WithMockUser; // <-- ADD THIS IMPORT
+// ... other imports
 
 import java.time.LocalDate;
 import java.util.List;
@@ -26,7 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.
 @SpringBootTest(classes = BackendApplication.class)
 @AutoConfigureMockMvc 
 @ActiveProfiles("test") // Use 'test' profile to isolate test configurations
-
+@WithMockUser(username = "test_user", roles = {"USER"})
 public class TradeControllerIT {
 
     private static final String BASE_URL = "/api/trades";
