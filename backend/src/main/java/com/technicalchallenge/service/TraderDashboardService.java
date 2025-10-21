@@ -87,17 +87,21 @@ public class TraderDashboardService {
 
         // Count by Trade Type
         Map<String, Long> tradeCountByType = tradeDTOs.stream()
-            .collect(Collectors.groupingBy(TradeDTO::getTradeType, Collectors.counting()));
+            .collect(Collectors.groupingBy(
+                dto -> Optional.ofNullable(dto.getTradeType()).orElse("UNKNOWN_TYPE"), // <--- FIX 1
+                Collectors.counting()));
             
         // Count by Counterparty Name
         Map<String, Long> tradeCountByCounterparty = tradeDTOs.stream()
-            .collect(Collectors.groupingBy(TradeDTO::getCounterpartyName, Collectors.counting()));
+            .collect(Collectors.groupingBy(
+                dto -> Optional.ofNullable(dto.getCounterpartyName()).orElse("UNKNOWN_CPTY"), // <--- FIX 2
+                Collectors.counting()));
 
         // Total Notional by Currency (Aggregating from TradeLegs)
         Map<String, BigDecimal> notionalByCurrency = tradeDTOs.stream()
             .flatMap(trade -> trade.getTradeLegs().stream())
             .collect(Collectors.groupingBy(
-                tradeLeg -> tradeLeg.getCurrency(),
+                tradeLeg -> Optional.ofNullable(tradeLeg.getCurrency()).orElse("UNKNOWN_CURRENCY"), // **FIX IS HERE**
                 Collectors.mapping(
                     tradeLeg -> tradeLeg.getNotional().abs(),
                     Collectors.reducing(BigDecimal.ZERO, BigDecimal::add)
