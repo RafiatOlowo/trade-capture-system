@@ -1,4 +1,3 @@
-import { describe, it, expect } from 'vitest';
 import { screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { renderWithRouter } from '../utils/test-utils';
@@ -26,6 +25,6 @@ vi.mock('../stores/userStore', () => ({
 describe('Support Page', () => {
   it('renders the Support / Admin View heading', () => {
     renderWithRouter(<Support />);
-    expect(screen.getByText(/Support/i)).toBeInTheDocument();
+    expect(screen.getByText(/Support/i)).toBeDefined();
   });
 });
