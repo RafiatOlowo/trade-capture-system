@@ -10,6 +10,8 @@ import com.technicalchallenge.model.Schedule;
 import com.technicalchallenge.model.Trade;
 import com.technicalchallenge.model.TradeLeg;
 import com.technicalchallenge.model.TradeStatus;
+import com.technicalchallenge.model.Currency;
+import com.technicalchallenge.model.LegType;
 import com.technicalchallenge.repository.ApplicationUserRepository;
 import com.technicalchallenge.repository.BookRepository;
 import com.technicalchallenge.repository.CashflowRepository;
@@ -48,6 +50,8 @@ import java.util.Arrays;
 import java.util.Optional;
 import java.util.Collections;
 import java.util.List;
+import java.lang.reflect.Method;
+import java.math.RoundingMode;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -181,6 +185,161 @@ class TradeServiceTest {
         tradePage = new PageImpl<>(tradeList);
         
         pageable = PageRequest.of(0, 10);
+    }
+
+    
+    // Helper method to call the private calculateCashflowValue method via reflection.
+
+    private BigDecimal callCalculateCashflowValue(TradeLeg leg, int monthsInterval) throws Exception {
+        Method method = TradeService.class.getDeclaredMethod("calculateCashflowValue", TradeLeg.class, int.class);
+        method.setAccessible(true);
+        // The TradeService instance is 'tradeService'
+        return (BigDecimal) method.invoke(tradeService, leg, monthsInterval);
+    }
+
+    // -------------------------------------------------------------------------
+    // UNIT TESTS FOR calculateCashflowValue(TradeLeg leg, int monthsInterval)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void calculateCashflowValue_FixedLeg_Quarterly_ValueCheck() throws Exception {
+        // GIVEN: Fixed Leg (Quarterly Interval = 3 months)
+        // Formula: (Notional * Rate * Months) / 12
+        // Input: Notional = 10,000,000, Rate = 3.5% (0.035), Months = 3
+        // Expected: (10,000,000 * 0.035 * 3) / 12 = 1,050,000 / 12 = 87,500.00
+        
+        TradeLeg fixedLeg = new TradeLeg();
+        fixedLeg.setNotional(BigDecimal.valueOf(10000000)); // $10,000,000
+        fixedLeg.setRate(3.5); // 3.5%
+        
+        LegType fixedType = new LegType();
+        fixedType.setType("Fixed");
+        fixedLeg.setLegRateType(fixedType);
+        
+        int monthsInterval = 3; // Quarterly
+
+        // WHEN
+        BigDecimal result = callCalculateCashflowValue(fixedLeg, monthsInterval);
+
+        // THEN
+        // The calculation yields exactly 87,500. The service scales to 10 decimal places.
+        // The value 87500.0000000000 is mathematically exact.
+        BigDecimal expectedValue = new BigDecimal("87500.0000000000"); // Enforce 10 decimal places
+        
+        // Use compareTo(0) for safe BigDecimal equality check
+        assertEquals(0, result.compareTo(expectedValue), 
+            "Cashflow value for 10M at 3.5% quarterly must be 87,500.00.");
+    }
+
+    @Test
+    void calculateCashflowValue_FixedLeg_Monthly_Success() throws Exception {
+        // GIVEN: Fixed Leg (Monthly Interval = 1 month)
+        // Formula: (Notional * Rate * Months) / 12
+        // Input: Notional = 1,000,000, Rate = 5.0% (0.05), Months = 1
+        // Expected: 4166.6666666700 (10 decimal places, HALF_UP rounding)
+        
+        TradeLeg fixedLeg = new TradeLeg();
+        fixedLeg.setNotional(BigDecimal.valueOf(1000000));
+        fixedLeg.setRate(5.0); // 5.0%
+        
+        LegType fixedType = new LegType();
+        fixedType.setType("Fixed");
+        fixedLeg.setLegRateType(fixedType);
+        
+        int monthsInterval = 1; // Monthly
+
+        // WHEN
+        BigDecimal result = callCalculateCashflowValue(fixedLeg, monthsInterval);
+
+        // THEN
+        // Define the expected value using the string constructor to enforce 10 decimal places
+        BigDecimal expectedValue = new BigDecimal("4166.6666666667"); 
+        
+        // Use compareTo(0) for safe BigDecimal equality check
+        assertEquals(0, result.compareTo(expectedValue), 
+            "Cashflow value for fixed leg should be correct for monthly period.");
+    }
+
+    @Test
+    void calculateCashflowValue_FixedLeg_Quarterly_Success() throws Exception {
+        // GIVEN: Fixed Leg (Quarterly Interval = 3 months)
+        // Formula: (Notional * Rate * Months) / 12
+        // Input: Notional = 20,000,000, Rate = 3.5% (0.035), Months = 3
+        // Expected: (20,000,000 * 0.035 * 3) / 12 = 2,100,000 / 12 = 175,000.00
+        
+        TradeLeg fixedLeg = new TradeLeg();
+        fixedLeg.setNotional(BigDecimal.valueOf(20000000));
+        fixedLeg.setRate(3.5); // 3.5%
+        
+        LegType fixedType = new LegType();
+        fixedType.setType("Fixed");
+        fixedLeg.setLegRateType(fixedType);
+        
+        int monthsInterval = 3; // Quarterly
+
+        // WHEN
+        BigDecimal result = callCalculateCashflowValue(fixedLeg, monthsInterval);
+
+        // THEN
+        BigDecimal expected = BigDecimal.valueOf(175000.0000000000); 
+        assertEquals(0, result.compareTo(expected), "Cashflow value for fixed leg should be correct for quarterly period.");
+    }
+
+    @Test
+    void calculateCashflowValue_FloatingLeg_ReturnsZero() throws Exception {
+        // GIVEN: Floating Leg
+        TradeLeg floatLeg = new TradeLeg();
+        floatLeg.setNotional(BigDecimal.valueOf(1000000));
+        floatLeg.setRate(0.0);
+        
+        LegType floatType = new LegType();
+        floatType.setType("Floating");
+        floatLeg.setLegRateType(floatType);
+        
+        int monthsInterval = 6; // Semi-annual
+
+        // WHEN
+        BigDecimal result = callCalculateCashflowValue(floatLeg, monthsInterval);
+
+        // THEN
+        assertEquals(BigDecimal.ZERO, result, "Cashflow value for floating leg should be zero (before fixing).");
+    }
+
+    @Test
+    void calculateCashflowValue_UnknownLegType_ReturnsZero() throws Exception {
+        // GIVEN: Unknown Leg Type
+        TradeLeg unknownLeg = new TradeLeg();
+        unknownLeg.setNotional(BigDecimal.valueOf(1000000));
+        unknownLeg.setRate(5.0);
+        
+        LegType unknownType = new LegType();
+        unknownType.setType("Equity");
+        unknownLeg.setLegRateType(unknownType);
+        
+        int monthsInterval = 1;
+
+        // WHEN
+        BigDecimal result = callCalculateCashflowValue(unknownLeg, monthsInterval);
+
+        // THEN
+        assertEquals(BigDecimal.ZERO, result, "Cashflow value for unknown leg type should be zero.");
+    }
+
+    @Test
+    void calculateCashflowValue_NullLegType_ReturnsZero() throws Exception {
+        // GIVEN: Null Leg Type
+        TradeLeg nullLeg = new TradeLeg();
+        nullLeg.setNotional(BigDecimal.valueOf(1000000));
+        nullLeg.setRate(5.0);
+        nullLeg.setLegRateType(null);
+        
+        int monthsInterval = 1;
+
+        // WHEN
+        BigDecimal result = callCalculateCashflowValue(nullLeg, monthsInterval);
+
+        // THEN
+        assertEquals(BigDecimal.ZERO, result, "Cashflow value for null leg type should be zero.");
     }
 
     @Test
