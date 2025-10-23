@@ -1,6 +1,7 @@
 package com.technicalchallenge.controller;
 
 import com.technicalchallenge.dto.TradeDTO;
+import com.technicalchallenge.dto.SettlementInstructionsDTO;
 import com.technicalchallenge.mapper.TradeMapper;
 import com.technicalchallenge.model.Trade;
 import com.technicalchallenge.service.TradeService;
@@ -221,6 +222,38 @@ public class TradeController {
          return ResponseEntity.ok(tradePage.map(tradeMapper::toDto));
     }
 
+    // Search by Settlement Instructions
+
+    @GetMapping("/search/settlement-instructions")
+    @Operation(summary = "Search Trades by Settlement Instructions Content",
+            description = "Retrieves a list of trades whose settlement instructions contain the specified search term.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Trades retrieved successfully"),
+        @ApiResponse(responseCode = "400", description = "Invalid search parameter"),
+        @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
+    public ResponseEntity<List<TradeDTO>> searchBySettlementInstructions(
+        @Parameter(description = "Partial instruction content to search for", required = true)
+        @RequestParam String instructions) {
+        
+        logger.info("Searching trades by settlement instructions content: '{}'", instructions);
+        
+        try {
+            
+            List<Trade> trades = tradeService.searchTradesBySettlementInstructions(instructions);
+
+            // Map the result list to DTOs
+            List<TradeDTO> tradeDTOs = trades.stream()
+                .map(tradeMapper::toDto)
+                .toList();
+                
+            return ResponseEntity.ok(tradeDTOs);
+        } catch (Exception e) {
+            logger.error("Error searching by settlement instructions: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
     @PostMapping
     @Operation(summary = "Create new trade",
                description = "Creates a new trade with the provided details. Automatically generates cashflows and validates business rules.")
@@ -287,6 +320,43 @@ public class TradeController {
         } catch (Exception e) {
             logger.error("Error updating trade: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body("Error updating trade: " + e.getMessage());
+        }
+    }
+
+    //  Update Settlement Instructions Only
+
+    @PutMapping("/{id}/settlement-instructions")
+    @Operation(summary = "Update Settlement Instructions for a Trade",
+            description = "Updates only the settlement instructions for the latest active version of a trade.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Settlement instructions updated successfully"),
+        @ApiResponse(responseCode = "404", description = "Trade not found"),
+        @ApiResponse(responseCode = "400", description = "Invalid request body or business validation failed")
+    })
+    public ResponseEntity<?> updateSettlementInstructions(
+        @Parameter(description = "Business Trade ID", required = true)
+        @PathVariable Long id, 
+        @Parameter(description = "New settlement instructions content", required = true)
+        @Valid @RequestBody SettlementInstructionsDTO request) {
+        
+        logger.info("Updating settlement instructions for Trade ID: {}", id);
+        
+        try {
+            Trade updatedTrade = tradeService.updateTradeSettlementInstructions(
+                id, 
+                request.getInstructions()
+            );
+
+            // Return the updated TradeDTO
+            TradeDTO responseDTO = tradeMapper.toDto(updatedTrade);
+            return ResponseEntity.ok(responseDTO);
+        } catch (RuntimeException e) {
+            // Catch exceptions like "Trade not found" or business rule violations
+            logger.error("Error updating settlement instructions for trade {}: {}", id, e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        } catch (Exception e) {
+            logger.error("Unexpected error during SI update for trade {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An unexpected error occurred.");
         }
     }
 
