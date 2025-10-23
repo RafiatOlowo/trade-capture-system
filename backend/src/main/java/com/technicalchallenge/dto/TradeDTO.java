@@ -71,4 +71,7 @@ public class TradeDTO {
 
     // Additional fields for extensibility
     private List<AdditionalInfoDTO> additionalFields;
+
+    // Capture settlement instructions during booking
+    private String settlementInstructions;
 }
