@@ -4,6 +4,7 @@ import com.technicalchallenge.dto.TradeDTO;
 import com.technicalchallenge.dto.TradeLegDTO;
 import com.technicalchallenge.exception.InsufficientPrivilegeException;
 import com.technicalchallenge.exception.TradeValidationException;
+import com.technicalchallenge.mapper.TradeMapper;
 import com.technicalchallenge.model.*;
 import com.technicalchallenge.validation.ValidationResult;
 
@@ -17,6 +18,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,6 +72,31 @@ public class TradeService {
     private PayRecRepository payRecRepository;
     @Autowired
     private AdditionalInfoService additionalInfoService;
+    @Autowired
+    private TradeMapper tradeMapper;
+
+
+    public TradeDTO getTradeDetailsByTradeId(Long tradeId) {
+        logger.debug("Retrieving trade details DTO by business trade id: {}", tradeId);
+
+        // 1. Retrieve the Trade Entity
+        Trade trade = getTradeById(tradeId)
+                .orElseThrow(() -> new RuntimeException("Trade not found or inactive for ID: " + tradeId));
+
+        // 2. Map the Trade Entity to DTO
+        TradeDTO tradeDTO = tradeMapper.toDto(trade);
+
+        // 3. ENHANCE DTO with Settlement Instructions (SI is linked by the internal 'id')
+        Long internalId = trade.getId();
+        String instructions = additionalInfoService.getSettlementInstructions(internalId);
+        
+        // Set the SI value onto the dedicated DTO field
+        tradeDTO.setSettlementInstructions(instructions);
+        
+        logger.debug("Retrieved settlement instructions for trade ID: {}", tradeId);
+
+        return tradeDTO;
+    }
 
     public List<Trade> getAllTrades() {
         logger.info("Retrieving all trades");
@@ -140,6 +167,16 @@ public class TradeService {
 
         // Create trade legs and cashflows
         createTradeLegsWithCashflows(tradeDTO, savedTrade);
+
+        // START INTEGRATION: SAVE SETTLEMENT INSTRUCTIONS IF PROVIDED
+        if (tradeDTO.getSettlementInstructions() != null && !tradeDTO.getSettlementInstructions().isBlank()) {
+            additionalInfoService.saveSettlementInstructions(
+                savedTrade.getId(), 
+                tradeDTO.getSettlementInstructions()
+            );
+            logger.debug("Saved settlement instructions for trade ID: {}", savedTrade.getTradeId());
+        }
+        // END INTEGRATION 
 
         logger.info("Successfully created trade with ID: {}", savedTrade.getTradeId());
         return savedTrade;
@@ -350,8 +387,93 @@ public class TradeService {
         // Create new trade legs and cashflows
         createTradeLegsWithCashflows(tradeDTO, savedTrade);
 
-        logger.info("Successfully amended trade with ID: {}", savedTrade.getTradeId());
-        return savedTrade;
+        // START INTEGRATION: SAVE/UPDATE SETTLEMENT INSTRUCTIONS
+        String newInstructions = tradeDTO.getSettlementInstructions();
+        
+        // Check if instructions were provided in the DTO
+        if (newInstructions != null && !newInstructions.isBlank()) {
+
+            // ACCESS CONTROL CHECK for Settlement Instructions
+            // Only TRADER_SALES can edit SI, even during general amendment.
+            if (tradeValidator.hasAnyRole(userId, "TRADER_SALES")) {
+
+                // Validate content security before persisting (e.g., no forbidden special chars)
+                validateSettlementInstructionsContent(newInstructions);
+
+                // Delegate to service for persistence (deactivates old, creates new for audit)
+                additionalInfoService.saveSettlementInstructions(
+                    savedTrade.getId(), 
+                    newInstructions
+                );
+                logger.debug("Updated settlement instructions for new amended trade ID: {}", savedTrade.getTradeId());
+            } else {
+                logger.warn("User {} attempted to amend SI without TRADER/SALES role. SI update skipped.", userId);
+                // If the user provided SI but lacked permission,simply skip saving SI
+                // to allow the general trade amendment (e.g., date change) to proceed.
+            }
+        }
+        // END INTEGRATION
+        
+            logger.info("Successfully amended trade with ID: {}", savedTrade.getTradeId());
+            return savedTrade;
+    }
+
+    /**
+     * Updates the settlement instructions for the latest active version of a trade.
+     * This triggers a deactivation of the old SI record and creation of a new one 
+     * via the AdditionalInfoService, ensuring an audit trail.
+     * @param tradeId The business ID of the trade.
+     * @param instructions The new settlement instructions text.
+     * @return The updated Trade entity.
+     */
+    @Transactional
+    @PreAuthorize("hasAnyAuthority('ROLE_TRADER_SALES')")
+    public Trade updateTradeSettlementInstructions(Long tradeId, String instructions) {
+
+        // Get the User ID from the Security Context
+        String userId = getCurrentUserId();
+
+        logger.info("Starting update of settlement instructions for trade ID: {}, by user ID: {}", tradeId, userId);
+
+        // 1. Find the active trade by ID
+        Trade trade = getTradeById(tradeId)
+                .orElseThrow(() -> new RuntimeException("Trade not found or inactive for ID: " + tradeId));
+
+        // 2. Content Security Validation (Enforces no special characters that cause security issues)
+        validateSettlementInstructionsContent(instructions);
+
+        // 3. Delegate to AdditionalInfoService for persistence and audit
+        // The service handles deactivation of the old SI and creation of the new SI record.
+        additionalInfoService.saveSettlementInstructions(
+            trade.getId(), // Use the internal primary key
+            instructions
+        );
+
+        // 4. Update the trade's last touch timestamp
+        trade.setLastTouchTimestamp(LocalDateTime.now());
+        tradeRepository.save(trade);
+
+        logger.info("Successfully updated SI for trade ID: {}", tradeId);
+        return trade;
+    }
+
+    /**
+     * Helper method for content security validation.
+     */
+    private void validateSettlementInstructionsContent(String instructions) {
+        // The instructions passed here has already passed the DTO @Size check (10-500)
+        if (instructions == null || instructions.trim().isEmpty()) {
+            return;
+        }
+
+        // Regex to allow standard alphanumeric, spaces, and common financial symbols/punctuation:
+        // [a-zA-Z0-9\s.,:/\-()#$&%*+'] (Strictly excludes <, >, ;, which are common injection threats)
+        String safePattern = "^[a-zA-Z0-9\\s.,:\\-/()#$&%*+']{10,500}$";
+        
+        if (!instructions.matches(safePattern)) {
+            logger.warn("Settlement instruction validation failed. Content: {}", instructions);
+            throw new TradeValidationException("Settlement instructions contain prohibited special characters or do not meet length requirements.");
+        }
     }
 
     @Transactional
@@ -695,6 +817,47 @@ public class TradeService {
     
     public Page<Trade> searchTrades(Specification<Trade> spec, Pageable pageable) {
         return tradeRepository.findAll(spec, pageable);
+    }
+
+    /**
+     * Searches for active trades by matching a partial string against their
+     * active Settlement Instructions (stored in AdditionalInfo table).
+     * @param instructions The partial text to search for.
+     * @return List of matching Trade entities.
+     */
+    @Transactional(readOnly = true)
+    public List<Trade> searchTradesBySettlementInstructions(String instructions) {
+        logger.info("Searching active trades by SI content: '{}'", instructions);
+        
+        if (instructions == null || instructions.isBlank()) {
+            // Return an empty list if the search query is empty
+            return List.of(); 
+        }
+
+        // --- START VALIDATION / SANITIZATION FOR SEARCH ---
+    
+        // 1. Length Check: Limit the search term length to prevent abuse/performance issues
+        if (instructions.length() > 200) { // e.g., max 200 chars for a search query
+            instructions = instructions.substring(0, 200);
+            logger.warn("Search query was truncated to 200 characters to prevent abuse.");
+        }
+        
+        // 2. Sanitize Content: Remove characters that could be malicious or interfere
+        //    with the JPA/SQL LIKE clause, while keeping necessary search characters.
+        //    (Example: Allow alphanumeric, spaces, dashes, commas. Remove quotes, semicolons, etc.)
+        //    The underlying query uses UPPER() and LIKE '%%', direct injection is harder,
+        //    but sanitization is still a good defensive layer.
+        String sanitizedInstructions = instructions.replaceAll("[^a-zA-Z0-9\\s.,-]", ""); 
+        
+        // Use the sanitized string for the search
+        if (sanitizedInstructions.isBlank()) {
+        return List.of();
+    }
+    
+        // --- END VALIDATION / SANITIZATION FOR SEARCH ---
+
+        // REPOSITORY METHOD CALL using sanitized string
+        return tradeRepository.findActiveTradesBySettlementInstructionsContaining(sanitizedInstructions);
     }
 
 

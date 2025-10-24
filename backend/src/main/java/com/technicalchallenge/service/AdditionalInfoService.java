@@ -1,5 +1,6 @@
 package com.technicalchallenge.service;
 
+import com.technicalchallenge.constants.AdditionalInfoConstants;
 import com.technicalchallenge.dto.AdditionalInfoDTO;
 import com.technicalchallenge.model.AdditionalInfo;
 import com.technicalchallenge.repository.AdditionalInfoRepository;
@@ -65,5 +66,42 @@ public class AdditionalInfoService {
 
     public AdditionalInfoDTO updateAdditionalInfo(AdditionalInfoDTO dto) {
         return addAdditionalInfo(dto); // Same logic as add - version control
+    }
+
+    // ------------------------------------------------------------------------
+    // METHODS FOR SETTLEMENT INSTRUCTIONS INTEGRATION
+    // ------------------------------------------------------------------------
+
+    /**
+     * Saves or updates the settlement instruction record linked to a Trade,
+     * * @param tradeId The ID of the parent Trade entity.
+     * @param instructions The raw settlement instruction text.
+     */
+    public void saveSettlementInstructions(Long tradeId, String instructions) {
+        if (tradeId == null || instructions == null || instructions.isBlank()) {
+            return;
+        }
+
+        // Create a DTO wrapper for the instructions
+        AdditionalInfoDTO siDto = new AdditionalInfoDTO();
+        siDto.setEntityType(AdditionalInfoConstants.ENTITY_TYPE_TRADE);
+        siDto.setEntityId(tradeId);
+        siDto.setFieldName(AdditionalInfoConstants.FIELD_NAME_SETTLEMENT_INSTRUCTIONS);
+        siDto.setFieldValue(instructions);
+        siDto.setFieldType(AdditionalInfoConstants.FIELD_TYPE_STRING);
+        
+        // Use the existing version-control logic to save/update the record
+        // This will deactivate any old record and create a new one.
+        this.addAdditionalInfo(siDto); 
+    }
+
+    // Retrieves the active settlement instructions for a given Trade ID.
+    public String getSettlementInstructions(Long tradeId) {
+        AdditionalInfo info = additionalInfoRepository.findActiveByEntityTypeAndEntityIdAndFieldName(
+            AdditionalInfoConstants.ENTITY_TYPE_TRADE,
+            tradeId,
+            AdditionalInfoConstants.FIELD_NAME_SETTLEMENT_INSTRUCTIONS
+        );
+        return info != null ? info.getFieldValue() : null;
     }
 }

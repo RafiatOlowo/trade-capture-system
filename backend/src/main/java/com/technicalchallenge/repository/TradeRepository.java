@@ -57,4 +57,13 @@ public interface TradeRepository extends JpaRepository<Trade, Long>, JpaSpecific
      */
     @Query("SELECT t FROM Trade t WHERE t.traderUser.id = :traderUserId AND t.tradeDate = :date")
     List<Trade> findTradesByTraderAndDate(@Param("traderUserId") Long traderUserId, @Param("date") java.time.LocalDate date);
+
+    // Method for Settlement Instructions search
+    @Query("SELECT t FROM Trade t " +
+           "JOIN AdditionalInfo ai ON t.id = ai.entityId " +
+           "WHERE ai.entityType = 'TRADE' " +
+           "AND ai.fieldName = 'SETTLEMENT_INSTRUCTIONS' " +
+           "AND ai.active = TRUE " +
+           "AND UPPER(ai.fieldValue) LIKE UPPER(CONCAT('%', :instructions, '%'))")
+    List<Trade> findActiveTradesBySettlementInstructionsContaining(@Param("instructions") String instructions);
 }
