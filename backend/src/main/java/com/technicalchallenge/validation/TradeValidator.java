@@ -278,4 +278,41 @@ public class TradeValidator {
             }
         }
     }
+
+    /**
+     * Checks if the user associated with the given login ID possesses
+     * at least one of the specified user types/profiles (roles).
+     * This method supports the isolated access control check for Settlement Instructions.
+     * This method only checks the user's primary profile type, not a full Spring Security Authority set.
+     * @param userId The login ID of the user (e.g., username from SecurityContext).
+     * @param requiredUserTypes A variable list of user types (e.g., "TRADER_SALES", "MO").
+     * @return true if the user has any of the required types, false otherwise.
+     */
+    public boolean hasAnyRole(String userId, String... requiredUserTypes) {
+        if (userId == null || requiredUserTypes == null || requiredUserTypes.length == 0) {
+            return false;
+        }
+
+        Optional<ApplicationUser> userOpt = userRepository.findByLoginId(userId);
+
+        if (userOpt.isEmpty() || !userOpt.get().isActive()) {
+            return false;
+        }
+
+        ApplicationUser user = userOpt.get();
+
+        if (user.getUserProfile() == null || user.getUserProfile().getUserType() == null) {
+            return false;
+        }
+
+        String userType = user.getUserProfile().getUserType().toUpperCase();
+
+        for (String requiredType : requiredUserTypes) {
+            if (userType.equals(requiredType.toUpperCase())) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }
