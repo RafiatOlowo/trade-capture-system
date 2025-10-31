@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -24,6 +25,7 @@ public interface TradeRepository extends JpaRepository<Trade, Long>, JpaSpecific
     Optional<Integer> findMaxVersionByTradeId(@Param("tradeId") Long tradeId);
 
     // NEW METHODS for service layer compatibility
+    @EntityGraph(attributePaths = {"additionalInfo"})
     Optional<Trade> findByTradeIdAndActiveTrue(Long tradeId);
 
     List<Trade> findByActiveTrueOrderByTradeIdDesc();
