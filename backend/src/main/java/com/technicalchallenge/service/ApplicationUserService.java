@@ -15,6 +15,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.stereotype.Service;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,12 +28,19 @@ import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
-public class ApplicationUserService implements UserDetailsService { 
+public class ApplicationUserService implements UserDetailsService {
     private static final Logger logger = LoggerFactory.getLogger(ApplicationUserService.class);
     private final ApplicationUserRepository applicationUserRepository;
     private final UserPrivilegeRepository userPrivilegeRepository;
     private final PrivilegeRepository privilegeRepository;
+    private final PasswordEncoder passwordEncoder;
 
+    public boolean validateCredentials(String loginId, String password) {
+            logger.debug("Validating credentials for user: {}", loginId);
+            Optional<ApplicationUser> user = applicationUserRepository.findByLoginId(loginId);
+            return user.map(applicationUser -> passwordEncoder.matches(password, applicationUser.getPassword())).orElse(false);
+    }
+    
     private Set<String> fetchPrivilegeNamesForUser(Long applicationUserId) {
         // 1. Get the list of UserPrivilege objects
         List<UserPrivilege> userPrivileges = userPrivilegeRepository.findByUserId(applicationUserId);
