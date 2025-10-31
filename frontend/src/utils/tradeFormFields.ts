@@ -23,6 +23,14 @@ export const TRADE_FIELDS = [
     {key: "maturityDate", label: "Maturity Date", type: "date"},
     {key: "executionDate", label: "Execution Date", type: "date"},
     {key: "utiCode", label: "UTI Code", type: "input"},
+
+    // --- START SETTLEMENT INSTRUCTIONS FIELD (Optional, 10-500 char if provided) ---
+    {key: "settlementInstructions", label: "Settlement Instructions", type: "textarea",
+        optional: true, // optional
+        minLength: 10,  // Minimum length only applies if the field is not empty
+        maxLength: 500, // Client-side constraint for the 500 character limit
+    }, // --- END SETTLEMENT INSTRUCTIONS FIELD---
+
     {key: "lastTouchTimestamp", label: "Last Touch Timestamp", type: "date"},
     {key: "validityStartDate", label: "Version Active Since", type: "date"},
 ];
