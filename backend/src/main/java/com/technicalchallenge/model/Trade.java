@@ -2,6 +2,7 @@ package com.technicalchallenge.model;
 
 import jakarta.persistence.*;
 import jakarta.persistence.Index;
+import org.hibernate.annotations.Where;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -75,7 +76,6 @@ public class Trade {
     private LocalDate tradeMaturityDate;
     private LocalDate tradeExecutionDate;
 
-    private Long additionalFieldsId;
     private LocalDateTime lastTouchTimestamp;
     private LocalDate validityStartDate;
     private LocalDate validityEndDate;
@@ -84,6 +84,13 @@ public class Trade {
     private Boolean active = true;
     private LocalDateTime createdDate;
     private LocalDateTime deactivatedDate;
+
+    // REMOVED: private Long additionalFieldsId;
+    // Maps to the AdditionalInfo table using the generic fields
+    @OneToMany(fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "entity_id", referencedColumnName = "id")
+    @Where(clause = "entity_type = 'TRADE'") 
+    private List<AdditionalInfo> additionalInfo;
 
     @OneToMany(mappedBy = "trade", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<TradeLeg> tradeLegs;
