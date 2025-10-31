@@ -4,7 +4,6 @@ import com.technicalchallenge.dto.TradeDTO;
 import com.technicalchallenge.dto.TradeLegDTO;
 import com.technicalchallenge.exception.InsufficientPrivilegeException;
 import com.technicalchallenge.exception.TradeValidationException;
-import com.technicalchallenge.mapper.TradeMapper;
 import com.technicalchallenge.model.*;
 import com.technicalchallenge.validation.ValidationResult;
 
@@ -72,31 +71,6 @@ public class TradeService {
     private PayRecRepository payRecRepository;
     @Autowired
     private AdditionalInfoService additionalInfoService;
-    @Autowired
-    private TradeMapper tradeMapper;
-
-
-    public TradeDTO getTradeDetailsByTradeId(Long tradeId) {
-        logger.debug("Retrieving trade details DTO by business trade id: {}", tradeId);
-
-        // 1. Retrieve the Trade Entity
-        Trade trade = getTradeById(tradeId)
-                .orElseThrow(() -> new RuntimeException("Trade not found or inactive for ID: " + tradeId));
-
-        // 2. Map the Trade Entity to DTO
-        TradeDTO tradeDTO = tradeMapper.toDto(trade);
-
-        // 3. ENHANCE DTO with Settlement Instructions (SI is linked by the internal 'id')
-        Long internalId = trade.getId();
-        String instructions = additionalInfoService.getSettlementInstructions(internalId);
-        
-        // Set the SI value onto the dedicated DTO field
-        tradeDTO.setSettlementInstructions(instructions);
-        
-        logger.debug("Retrieved settlement instructions for trade ID: {}", tradeId);
-
-        return tradeDTO;
-    }
 
     public List<Trade> getAllTrades() {
         logger.info("Retrieving all trades");
