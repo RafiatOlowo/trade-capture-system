@@ -10,10 +10,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.security.test.context.support.WithMockUser; // <-- ADD THIS IMPORT
-// ... other imports
+import org.springframework.security.test.context.support.WithMockUser;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -35,6 +35,7 @@ public class TradeControllerIT {
 
     @Autowired private MockMvc mockMvc;
     @Autowired private TradeRepository tradeRepository;
+    @Autowired private JdbcTemplate jdbcTemplate;
 
     // --- Repositories for Dependent Entities ---
     @Autowired private CounterpartyRepository counterpartyRepository;
@@ -64,19 +65,24 @@ public class TradeControllerIT {
 
     @BeforeEach
     void setup() {
-        // --- 1. Clear Data in reverse dependency order ---
-        tradeRepository.deleteAll();
+        // --- 1. Clear Data in reverse dependency order using JDBC for reliable cleanup ---
         
+        // Delete all data from dependent trade tables first
+        jdbcTemplate.execute("DELETE FROM cashflow");
+        jdbcTemplate.execute("DELETE FROM trade_leg");
+        jdbcTemplate.execute("DELETE FROM additional_info");
+        jdbcTemplate.execute("DELETE FROM trade");
+
         // Clear all dependent repositories
-        tradeSubTypeRepository.deleteAll();
-        tradeTypeRepository.deleteAll();
-        tradeStatusRepository.deleteAll();
-        applicationUserRepository.deleteAll();
-        bookRepository.deleteAll();
-        counterpartyRepository.deleteAll();
-        costCenterRepository.deleteAll();
-        subDeskRepository.deleteAll();
-        deskRepository.deleteAll(); // Lowest dependency cleared last
+        jdbcTemplate.execute("DELETE FROM trade_sub_type");
+        jdbcTemplate.execute("DELETE FROM trade_type");
+        jdbcTemplate.execute("DELETE FROM trade_status");
+        jdbcTemplate.execute("DELETE FROM application_user");
+        jdbcTemplate.execute("DELETE FROM book");
+        jdbcTemplate.execute("DELETE FROM counterparty");
+        jdbcTemplate.execute("DELETE FROM cost_center");
+        jdbcTemplate.execute("DELETE FROM sub_desk");
+        jdbcTemplate.execute("DELETE FROM desk");
 
         // --- 2. Create and Save Dependencies ---
         
