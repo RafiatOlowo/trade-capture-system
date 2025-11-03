@@ -2,6 +2,7 @@ package com.technicalchallenge.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.technicalchallenge.dto.SettlementInstructionsDTO;
 import com.technicalchallenge.dto.TradeDTO;
 import com.technicalchallenge.mapper.TradeMapper;
 import com.technicalchallenge.model.Trade;
@@ -29,6 +30,8 @@ import java.util.Collections;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -509,5 +512,146 @@ public class TradeControllerTest {
                 .andExpect(status().isBadRequest());
 
         verify(tradeService, never()).createTrade(any(TradeDTO.class));
+    }
+
+        // --- TESTS FOR SETTLEMENT INSTRUCTIONS ENDPOINTS ---
+
+    @Test
+    void testUpdateSettlementInstructions_Success() throws Exception {
+        // Arrange
+        Long tradeId = 1001L;
+        String newInstructions = "Updated settlement instructions for successful test.";
+
+        SettlementInstructionsDTO request = new SettlementInstructionsDTO();
+        request.setInstructions(newInstructions);
+
+        // Mock service call to return the updated trade entity
+        when(tradeService.updateTradeSettlementInstructions(eq(tradeId), eq(newInstructions)))
+            .thenReturn(trade);
+        
+        // Act & Assert
+        mockMvc.perform(put("/api/trades/{id}/settlement-instructions", tradeId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+                        .with(csrf()))
+                
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tradeId", is(1001)))
+                .andExpect(jsonPath("$.bookName", is("TestBook"))); // Verify response is a mapped TradeDTO
+
+        // Verify the service method was called exactly once with correct parameters
+        verify(tradeService).updateTradeSettlementInstructions(eq(tradeId), eq(newInstructions));
+    }
+
+    @Test
+    void testUpdateSettlementInstructions_TradeNotFound() throws Exception {
+        // Arrange
+        Long nonExistentTradeId = 9999L;
+        String notFoundMessage = "Trade with ID 9999 not found or inactive.";
+        
+        SettlementInstructionsDTO request = new SettlementInstructionsDTO();
+        request.setInstructions("Valid instructions that won't be saved.");
+
+        // Mock service to throw a RuntimeException (which the controller maps to 404)
+        when(tradeService.updateTradeSettlementInstructions(eq(nonExistentTradeId), anyString()))
+            .thenThrow(new RuntimeException(notFoundMessage));
+        
+        // Act & Assert
+        mockMvc.perform(put("/api/trades/{id}/settlement-instructions", nonExistentTradeId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+                        .with(csrf()))
+                
+                .andExpect(status().isNotFound()) // Expect 404
+                .andExpect(content().string(notFoundMessage)); // Verify the error message is returned
+        
+        // Verify mapper was never called
+        verify(tradeMapper, never()).toDto(any());
+    }
+
+    @Test
+    void testUpdateSettlementInstructions_ValidationFailure() throws Exception {
+        // Arrange
+        Long tradeId = 1001L;
+        // Instructions are too short, violating @Size(min = 10)
+        SettlementInstructionsDTO invalidRequest = new SettlementInstructionsDTO();
+        invalidRequest.setInstructions("Short"); 
+
+        // Act & Assert
+        mockMvc.perform(put("/api/trades/{id}/settlement-instructions", tradeId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(invalidRequest))
+                        .with(csrf()))
+                
+                .andExpect(status().isBadRequest()); // Expect 400 due to @Valid failure
+        // Verify the service method was never called
+        verify(tradeService, never()).updateTradeSettlementInstructions(anyLong(), anyString());
+    }
+
+    @Test
+    void testSearchBySettlementInstructions_SuccessWithResults() throws Exception {
+        // Arrange
+        String searchTerm = "Bank of America";
+        
+        // Create a list of Trades
+        List<Trade> trades = List.of(trade);
+        
+        // Mock the service call
+        when(tradeService.searchTradesBySettlementInstructions(searchTerm)).thenReturn(trades);
+
+        // Act & Assert
+        mockMvc.perform(get("/api/trades/search/settlement-instructions")
+                        .param("instructions", searchTerm)
+                        .contentType(MediaType.APPLICATION_JSON))
+                
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].tradeId", is(1001))); // Check content mapping
+
+        // Verify the service method was called
+        verify(tradeService).searchTradesBySettlementInstructions(searchTerm);
+    }
+
+    @Test
+    void testSearchBySettlementInstructions_NoResults() throws Exception {
+        // Arrange
+        String searchTerm = "NonExistentTerm";
+        
+        // Mock the service call to return an empty list
+        when(tradeService.searchTradesBySettlementInstructions(searchTerm)).thenReturn(Collections.emptyList());
+
+        // Act & Assert
+        mockMvc.perform(get("/api/trades/search/settlement-instructions")
+                        .param("instructions", searchTerm)
+                        .contentType(MediaType.APPLICATION_JSON))
+                
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(0))); // Expect empty array
+
+        // Verify the service method was called
+        verify(tradeService).searchTradesBySettlementInstructions(searchTerm);
+        // Verify mapper was never called since the list was empty
+        verify(tradeMapper, never()).toDto(any());
+    }
+
+    @Test
+    void testSearchBySettlementInstructions_InternalServerError() throws Exception {
+        // Arrange
+        String searchTerm = "ErrorTerm";
+        
+        // Mock the service call to throw a generic exception (mapped to 500)
+        when(tradeService.searchTradesBySettlementInstructions(searchTerm))
+            .thenThrow(new IllegalStateException("Database connection failed"));
+
+        // Act & Assert
+        mockMvc.perform(get("/api/trades/search/settlement-instructions")
+                        .param("instructions", searchTerm)
+                        .contentType(MediaType.APPLICATION_JSON))
+                
+                .andExpect(status().isInternalServerError()) // Expect 500
+                .andExpect(content().string("")); // Response body is empty for 500 in the controller
+
+        // Verify the service method was called
+        verify(tradeService).searchTradesBySettlementInstructions(searchTerm);
     }
 }

@@ -2,7 +2,9 @@ package com.technicalchallenge.mapper;
 
 import com.technicalchallenge.dto.TradeDTO;
 import com.technicalchallenge.dto.TradeLegDTO;
+import com.technicalchallenge.dto.AdditionalInfoDTO;
 import com.technicalchallenge.dto.CashflowDTO;
+import com.technicalchallenge.model.AdditionalInfo;
 import com.technicalchallenge.model.Trade;
 import com.technicalchallenge.model.TradeLeg;
 import com.technicalchallenge.model.Cashflow;
@@ -15,6 +17,7 @@ import java.util.stream.Collectors;
 
 @Component
 public class TradeMapper {
+    private static final String SETTLEMENT_INSTRUCTIONS_FIELD = "SETTLEMENT_INSTRUCTIONS";
 
     @Autowired
     private ModelMapper modelMapper;
@@ -83,6 +86,22 @@ public class TradeMapper {
             dto.setTradeLegs(legDTOs);
         }
 
+        // MAPPING ADDITIONAL INFO AND SETTLEMENT INSTRUCTIONS
+        if (trade.getAdditionalInfo() != null) {
+            // 1. Map the entire list to the generic additionalFields DTO list
+            List<AdditionalInfoDTO> additionalInfoDTOs = trade.getAdditionalInfo().stream()
+                    .map(this::additionalInfoToDto)
+                    .collect(Collectors.toList());
+            dto.setAdditionalFields(additionalInfoDTOs);
+
+            // 2. Extract the specific Settlement Instructions string
+            trade.getAdditionalInfo().stream()
+                    .filter(info -> info.getFieldName().equals(SETTLEMENT_INSTRUCTIONS_FIELD))
+                    .filter(AdditionalInfo::getActive)
+                    .findFirst()
+                    .ifPresent(info -> dto.setSettlementInstructions(info.getFieldValue()));
+        }
+
         return dto;
     }
 
@@ -107,6 +126,14 @@ public class TradeMapper {
         trade.setCreatedDate(dto.getCreatedDate());
 
         return trade;
+    }
+
+    // NEW HELPER METHOD
+    public AdditionalInfoDTO additionalInfoToDto(AdditionalInfo info) {
+        if (info == null) {
+            return null;
+        }
+        return modelMapper.map(info, AdditionalInfoDTO.class);
     }
 
     public TradeLegDTO tradeLegToDto(TradeLeg leg) {

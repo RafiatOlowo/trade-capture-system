@@ -23,6 +23,19 @@ export const TRADE_FIELDS = [
     {key: "maturityDate", label: "Maturity Date", type: "date"},
     {key: "executionDate", label: "Execution Date", type: "date"},
     {key: "utiCode", label: "UTI Code", type: "input"},
+
+    // --- SETTLEMENT INSTRUCTIONS FIELD ---
+    { 
+        key: "settlementInstructions", 
+        label: "Settlement Instructions (Optional)", 
+        type: "specialized-textarea",
+        minLength: staticStore.settlementFieldConfig.minLength,
+        maxLength: staticStore.settlementFieldConfig.maxLength,
+        placeholder: staticStore.settlementFieldConfig.placeholder,
+        options: () => staticStore.settlementFieldConfig.templates ?? []
+    }, 
+    // --- END SETTLEMENT INSTRUCTIONS FIELD---
+
     {key: "lastTouchTimestamp", label: "Last Touch Timestamp", type: "date"},
     {key: "validityStartDate", label: "Version Active Since", type: "date"},
 ];
