@@ -1,6 +1,7 @@
 import React from "react";
 import Input from "./Input";
 import Dropdown from "./Dropdown";
+import SettlementInstructionField from "./SettlementInstructionField";
 
 /**
  * Props for the FieldRenderer component
@@ -11,6 +12,9 @@ export interface FieldRendererProps {
         label: string;
         type: string;
         options?: (() => { value: string; label: string }[] | string[]) | { value: string; label: string }[] | string[]
+        minLength?: number; 
+        maxLength?: number;
+        templates?: string[];
     };
     value: string | number | undefined | null;
     disabled: boolean;
@@ -36,6 +40,7 @@ const FieldRenderer: React.FC<FieldRendererProps> = ({field, value, disabled, on
 
     const commonClass = `h-9 px-2 py-1 text-sm ${getFieldClass()}`;
 
+    // --- DROPDOWN ---
     if (field.type === "dropdown") {
         const optionsRaw = typeof field.options === 'function' ? field.options() : field.options || [];
         const options = (optionsRaw as ({ value: string; label: string }[] | string[])).map((opt) =>
@@ -51,6 +56,23 @@ const FieldRenderer: React.FC<FieldRendererProps> = ({field, value, disabled, on
             />
         );
     }
+
+    // --- SETTLEMENT INSTRUCTIONS (Custom Component) ---
+    if (field.type === "settlementInstructionsTemplate") {
+        return (
+            <SettlementInstructionField
+                value={typeof value === 'string' ? value : ""}
+                onChange={(val: string) => onChange(val)}
+                disabled={disabled}
+                className={commonClass}
+                minLength={field.minLength}
+                maxLength={field.maxLength}
+                templates={field.templates}
+            />
+        );
+    }
+
+    // --- INPUT (Default) ---
     return (
         <Input
             size="md"
