@@ -85,14 +85,8 @@ public class ApplicationUserService implements UserDetailsService {
             .map(SimpleGrantedAuthority::new)
             .forEach(grantedAuthorities::add);
 
-        // Step 4: Apply the CRITICAL privilege-to-role translation rule
-        if (privilegeNames.contains("AMEND_TRADE")) {
-            // Grant the high-level roles required by @PreAuthorize("hasAnyAuthority('ROLE_TRADER', 'ROLE_SALES')")
-            grantedAuthorities.add(new SimpleGrantedAuthority("ROLE_TRADER")); 
-            grantedAuthorities.add(new SimpleGrantedAuthority("ROLE_SALES"));
-        }
-        
-        // Step 5: Add the base user profile role (e.g., ROLE_ADMIN, ROLE_SUPPORT)
+       
+        // Step 4: Add the base user profile role (e.g., ROLE_ADMIN, ROLE_SUPPORT)
         String userType = applicationUser.getUserProfile() != null 
                             ? applicationUser.getUserProfile().getUserType().toUpperCase() 
                             : "UNKNOWN";
