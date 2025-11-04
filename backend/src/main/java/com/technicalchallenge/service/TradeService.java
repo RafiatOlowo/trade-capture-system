@@ -176,7 +176,10 @@ public class TradeService {
         // Populate Book
         if (tradeDTO.getBookName() != null) {
             bookRepository.findByBookName(tradeDTO.getBookName())
-                    .ifPresent(trade::setBook);
+                    .ifPresent(book -> {
+                        trade.setBook(book);
+                        tradeDTO.setBookId(book.getId());
+                    });
         } else if (tradeDTO.getBookId() != null) {
             bookRepository.findById(tradeDTO.getBookId())
                     .ifPresent(trade::setBook);
@@ -185,7 +188,10 @@ public class TradeService {
         // Populate Counterparty
         if (tradeDTO.getCounterpartyName() != null) {
             counterpartyRepository.findByName(tradeDTO.getCounterpartyName())
-                    .ifPresent(trade::setCounterparty);
+                    .ifPresent(counterparty -> {
+                    trade.setCounterparty(counterparty);
+                    tradeDTO.setCounterpartyId(counterparty.getId());
+                });
         } else if (tradeDTO.getCounterpartyId() != null) {
             counterpartyRepository.findById(tradeDTO.getCounterpartyId())
                     .ifPresent(trade::setCounterparty);
@@ -216,6 +222,8 @@ public class TradeService {
                 Optional<ApplicationUser> userOpt = applicationUserRepository.findByFirstName(firstName);
                 if (userOpt.isPresent()) {
                     trade.setTraderUser(userOpt.get());
+                    // Set DTO ID
+                    tradeDTO.setTraderUserId(userOpt.get().getId());
                     logger.debug("Found trader user: {} {}", userOpt.get().getFirstName(), userOpt.get().getLastName());
                 } else {
                     logger.warn("Trader user not found with firstName: {}", firstName);
@@ -223,6 +231,8 @@ public class TradeService {
                     Optional<ApplicationUser> byLoginId = applicationUserRepository.findByLoginId(tradeDTO.getTraderUserName().toLowerCase());
                     if (byLoginId.isPresent()) {
                         trade.setTraderUser(byLoginId.get());
+                        // Set DTO ID
+                        tradeDTO.setTraderUserId(byLoginId.get().getId());
                         logger.debug("Found trader user by loginId: {}", tradeDTO.getTraderUserName());
                     } else {
                         logger.warn("Trader user not found by loginId either: {}", tradeDTO.getTraderUserName());
@@ -244,6 +254,7 @@ public class TradeService {
                 Optional<ApplicationUser> userOpt = applicationUserRepository.findByFirstName(firstName);
                 if (userOpt.isPresent()) {
                     trade.setTradeInputterUser(userOpt.get());
+                    tradeDTO.setTradeInputterUserId(userOpt.get().getId());
                     logger.debug("Found inputter user: {} {}", userOpt.get().getFirstName(), userOpt.get().getLastName());
                 } else {
                     logger.warn("Inputter user not found with firstName: {}", firstName);
@@ -251,6 +262,7 @@ public class TradeService {
                     Optional<ApplicationUser> byLoginId = applicationUserRepository.findByLoginId(tradeDTO.getInputterUserName().toLowerCase());
                     if (byLoginId.isPresent()) {
                         trade.setTradeInputterUser(byLoginId.get());
+                        tradeDTO.setTradeInputterUserId(byLoginId.get().getId());
                         logger.debug("Found inputter user by loginId: {}", tradeDTO.getInputterUserName());
                     } else {
                         logger.warn("Inputter user not found by loginId either: {}", tradeDTO.getInputterUserName());
