@@ -10,6 +10,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -255,6 +256,7 @@ public class TradeController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyAuthority('ROLE_SUPERUSER','ROLE_TRADER_SALES')")
     @Operation(summary = "Create new trade",
                description = "Creates a new trade with the provided details. Automatically generates cashflows and validates business rules.")
     @ApiResponses(value = {
@@ -290,6 +292,7 @@ public class TradeController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyAuthority('ROLE_SUPERUSER','ROLE_TRADER_SALES','ROLE_MO')")
     @Operation(summary = "Update existing trade",
                description = "Updates an existing trade with new information. Subject to business rule validation and user privileges.")
     @ApiResponses(value = {
@@ -326,6 +329,7 @@ public class TradeController {
     //  Update Settlement Instructions Only
 
     @PutMapping("/{id}/settlement-instructions")
+    @PreAuthorize("hasAnyAuthority('ROLE_SUPERUSER','ROLE_TRADER_SALES')")
     @Operation(summary = "Update Settlement Instructions for a Trade",
             description = "Updates only the settlement instructions for the latest active version of a trade.")
     @ApiResponses(value = {
@@ -383,6 +387,7 @@ public class TradeController {
     }
 
     @PostMapping("/{id}/terminate")
+    @PreAuthorize("hasAnyAuthority('ROLE_SUPERUSER','ROLE_TRADER_SALES')")
     @Operation(summary = "Terminate trade",
                description = "Terminates an existing trade before its natural maturity date")
     @ApiResponses(value = {
@@ -408,6 +413,7 @@ public class TradeController {
     }
 
     @PostMapping("/{id}/cancel")
+    @PreAuthorize("hasAnyAuthority('ROLE_SUPERUSER','ROLE_TRADER_SALES')")
     @Operation(summary = "Cancel trade",
                description = "Cancels an existing trade by changing its status to cancelled")
     @ApiResponses(value = {
