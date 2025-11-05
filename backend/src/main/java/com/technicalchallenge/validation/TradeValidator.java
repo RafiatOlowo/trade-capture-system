@@ -273,8 +273,27 @@ public class TradeValidator {
             }
         } else if (legType.equals("FIXED")) {
             // Fixed legs must have a rate specified
+            // 1. Presence Check
             if (leg.getRate() == null) {
                 result.addError(legLabel + ": Fixed leg missing required rate specification.");
+            }
+
+            // 2. Data Quality Check: Rate must be reasonable and non-negative
+            Double rate = leg.getRate();
+
+            // Rule: Rate must be non-negative
+            if (rate.compareTo(0.0) < 0) {
+                result.addError(legLabel + ": Fixed rate cannot be negative.");
+            }
+
+            // Rule: Rate must not be zero (for typical trading rules)
+            if (rate.compareTo(0.0) == 0) {
+                result.addError(legLabel + ": Fixed rate must be a non-zero value.");
+            }
+
+            // Rule: Rate must be within a maximum boundary (Using 50.0% or 0.50)
+            if (rate.compareTo(0.50) > 0) { 
+                result.addError(legLabel + ": Fixed rate is too high (must be <= 50.0%).");
             }
         }
     }
