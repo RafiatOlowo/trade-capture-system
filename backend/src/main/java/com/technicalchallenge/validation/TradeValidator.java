@@ -292,7 +292,7 @@ public class TradeValidator {
             }
 
             // Rule: Rate must be within a maximum boundary (Using 50.0% or 0.50)
-            if (rate.compareTo(0.50) > 0) { 
+            if (rate.compareTo(50.0) > 0) {
                 result.addError(legLabel + ": Fixed rate is too high (must be <= 50.0%).");
             }
         }
