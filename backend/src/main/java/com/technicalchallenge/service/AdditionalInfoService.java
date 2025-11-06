@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.Optional;
 
 @Service
 @Transactional
@@ -103,5 +104,24 @@ public class AdditionalInfoService {
             AdditionalInfoConstants.FIELD_NAME_SETTLEMENT_INSTRUCTIONS
         );
         return info != null ? info.getFieldValue() : null;
+    }
+
+    /**
+     * Retrieves the instruction text for a specific Trade entity PK, regardless of the SI record's 'active' status.
+     * This is used by TradeService to retrieve the SI text from the *previous* trade version (which is now inactive).
+     * @param entityId The Primary Key (id) of the Trade entity version (PK-A).
+     * @return The settlement instruction text, or null if not found.
+     */
+    public String getSettlementInstructionTextByEntityPK(Long entityId) {
+        // Need the *last* SI linked to this specific PK (PK-A), as the SI's 'active' flag might have been
+        // cleared when the trade version was deactivated. Then look for the latest created record.
+        Optional<AdditionalInfo> infoOpt = additionalInfoRepository
+            .findFirstByEntityTypeAndEntityIdAndFieldNameOrderByCreatedDateDesc(
+                AdditionalInfoConstants.ENTITY_TYPE_TRADE,
+                entityId,
+                AdditionalInfoConstants.FIELD_NAME_SETTLEMENT_INSTRUCTIONS
+            );
+        
+        return infoOpt.map(AdditionalInfo::getFieldValue).orElse(null);
     }
 }
