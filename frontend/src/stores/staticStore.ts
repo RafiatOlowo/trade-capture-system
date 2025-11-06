@@ -2,46 +2,7 @@ import {makeAutoObservable, observable} from "mobx";
 import {UserType} from "../utils/UserType";
 import api from "../utils/api";
 
-export type TemplateItem = { 
-    name: string;
-    content: string;
-}
-
-export type FieldConfig = {
-    minLength: number;
-    maxLength: number;
-    placeholder: string;
-    templates: TemplateItem[];
-}
-
 class StaticStore {
-
-    // Settlement Field Config property ---
-    _settlementFieldConfig: FieldConfig = {
-        minLength: 10,
-        maxLength: 500, 
-        placeholder: "Enter settlement instructions here or select a template above...",
-        templates: [
-            {
-                name: "Cash Wire Transfer (JPM)", 
-                content: "Settle via JPM New York, Account: 123456789, Further Credit: ABC Corp Trading Account"
-            },
-            {
-                name: "DVP Euroclear Securities", 
-                content: "DVP settlement through Euroclear, ISIN confirmation required before settlement"
-            },
-            {
-                name: "FedWire Instructions (Cash)", 
-                content: "Cash settlement only, wire instructions: Federal Reserve Bank routing 123456789"
-            },
-            {
-                name: "Physical Delivery (Warehouse)", 
-                content: "Physical delivery to warehouse facility, contact operations team for coordination"
-            },
-        ],
-    };
-    // --- END OF SETTLEMENT FIELD CONFIG PROPERTY ---
-
     _userTypeCache: UserType[] = [];
     _isLoading: boolean = false;
     _error: string | null = null;
@@ -61,12 +22,6 @@ class StaticStore {
     _costCenterValues: string[] = [];
     _userValues: string[] = [];
     _tradeSubTypeValues: string[] = [];
-
-    // Getter for the Settlement Field Config ---
-     get settlementFieldConfig(): FieldConfig {
-        return this._settlementFieldConfig;
-    }
-    // --- END OF SETTLEMENT FIELD CONFIG GETTER ---
 
     get error(): string | null {
         return this._error;

@@ -11,6 +11,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.servlet.handler.HandlerMappingIntrospector;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
 
@@ -74,7 +75,27 @@ public SecurityFilterChain securityFilterChain(
             // Allow frames for H2 Console
             .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.sameOrigin()))
 
-            .httpBasic(httpBasic -> {});
+            // Stateful Form Login
+            .formLogin(form -> form
+                .loginProcessingUrl("/api/login") 
+                // On success, return 200 OK (don't redirect)
+                .successHandler((req, res, auth) -> res.setStatus(HttpServletResponse.SC_OK)) 
+                // On failure, return 401 Unauthorized (don't redirect)
+                .failureHandler((req, res, ex) -> res.setStatus(HttpServletResponse.SC_UNAUTHORIZED)) 
+                .permitAll()
+            )
+
+            // Logout
+            .logout(logout -> logout
+                .logoutUrl("/api/logout") 
+                // On success, return 200 OK
+                .logoutSuccessHandler((req, res, auth) -> res.setStatus(HttpServletResponse.SC_OK))
+                // Invalidate the server-side session
+                .invalidateHttpSession(true) 
+                // Delete the JSESSIONID cookie
+                .deleteCookies("JSESSIONID") 
+                .permitAll()
+            );
         return http.build();
     }
 

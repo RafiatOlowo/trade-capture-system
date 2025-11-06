@@ -24,17 +24,18 @@ export const TRADE_FIELDS = [
     {key: "executionDate", label: "Execution Date", type: "date"},
     {key: "utiCode", label: "UTI Code", type: "input"},
 
-    // --- SETTLEMENT INSTRUCTIONS FIELD ---
-    { 
-        key: "settlementInstructions", 
-        label: "Settlement Instructions (Optional)", 
-        type: "specialized-textarea",
-        minLength: staticStore.settlementFieldConfig.minLength,
-        maxLength: staticStore.settlementFieldConfig.maxLength,
-        placeholder: staticStore.settlementFieldConfig.placeholder,
-        options: () => staticStore.settlementFieldConfig.templates ?? []
-    }, 
-    // --- END SETTLEMENT INSTRUCTIONS FIELD---
+    // --- START SETTLEMENT INSTRUCTIONS FIELD (Optional, 10-500 char if provided) ---
+    {key: "settlementInstructions", label: "Settlement Instructions", type: "settlementInstructionsTemplate", // <- Custom type
+        optional: true, // optional
+        minLength: 10,  // Minimum length only applies if the field is not empty
+        maxLength: 500, // Client-side constraint for the 500 character limit
+        templates: [
+        "Settle via JPM New York, Account: 123456789, Further Credit: ABC Corp Trading Account",
+        "DVP settlement through Euroclear, ISIN confirmation required before settlement",
+        "Cash settlement only, wire instructions: Federal Reserve Bank routing 123456789",
+        "Physical delivery to warehouse facility, contact operations team for coordination"
+    ],
+    }, // --- END SETTLEMENT INSTRUCTIONS FIELD---
 
     {key: "lastTouchTimestamp", label: "Last Touch Timestamp", type: "date"},
     {key: "validityStartDate", label: "Version Active Since", type: "date"},
