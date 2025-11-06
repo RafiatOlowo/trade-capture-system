@@ -122,6 +122,8 @@ public class ApplicationUserService implements UserDetailsService {
     }
 
     public ApplicationUser saveUser(ApplicationUser user) {
+        // Hash the password before saving a new user
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
         logger.info("Saving user: {}", user);
         return applicationUserRepository.save(user);
     }
@@ -142,7 +144,7 @@ public class ApplicationUserService implements UserDetailsService {
         existingUser.setActive(user.isActive());
         existingUser.setUserProfile(user.getUserProfile());
         if (user.getPassword() != null && !user.getPassword().isEmpty()) {
-            existingUser.setPassword(user.getPassword());
+            existingUser.setPassword(passwordEncoder.encode(user.getPassword()));
         }
         // version and lastModifiedTimestamp handled by entity listeners
         return applicationUserRepository.save(existingUser);
