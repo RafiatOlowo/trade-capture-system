@@ -31,3 +31,5 @@ The Settlement Instruction field has been successfully integrated across both th
 The system correctly retrieves and re-asserts the existing SI value, preventing the instruction from being accidentally wiped out when a non-Trader/Sales user amends a trade
 
 Security against SQL injection is enforced in the back-end by validating the text content and adhering to parameterized query best practices, ensuring the raw text input does not compromise the database.
+
+Settlement instructions is included in the quick search with the add of a search SI button and it displays the first result found from list returned from the SI search 
