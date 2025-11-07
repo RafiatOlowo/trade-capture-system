@@ -3,6 +3,7 @@ package com.technicalchallenge.controller;
 import com.technicalchallenge.dto.TradeDTO;
 import com.technicalchallenge.dto.SettlementInstructionsDTO;
 import com.technicalchallenge.mapper.TradeMapper;
+import com.technicalchallenge.model.AdditionalInfo;
 import com.technicalchallenge.model.Trade;
 import com.technicalchallenge.service.TradeService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +26,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 
 import jakarta.validation.Valid;
 import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Join;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -100,10 +102,12 @@ public class TradeController {
             @RequestParam(value = "status", required = false) String tradeStatus,
             @RequestParam(value = "startDate", required = false) LocalDate startDate,
             @RequestParam(value = "endDate", required = false) LocalDate endDate,
+            @RequestParam(value = "siContent", required = false) String siContent,
             Pageable pageable) {
 
-        logger.info("Starting multi-criteria search. Params: [Counterparty: {}, Book: {}, Trader: {}, Status: {}, Startdate: {}, Enddate: {}]",
-                counterpartyName, bookName, traderId, tradeStatus, startDate, endDate);
+        logger.info("Starting multi-criteria search. Params: [Counterparty: {}, Book: {}, Trader: {}, Status: {}, Startdate: {}, Enddate: {}, SI Content: {}]",
+                counterpartyName, bookName, traderId, tradeStatus, startDate, endDate, siContent);
+
         Specification<Trade> specification = Specification.where(null);
         boolean filtersApplied = false;
 
@@ -155,6 +159,24 @@ public class TradeController {
                 return datePredicate;
             });
             filtersApplied = true;
+
+            // 6. Settlement Instruction Content Filter (Using JOIN on AdditionalInfo)
+            if (siContent != null && !siContent.isBlank()) {
+                specification = specification.and((root, query, criteriaBuilder) -> {
+                    // Join to the AdditionalInfo table
+                    Join<Trade, AdditionalInfo> additionalInfoJoin = root.join("additionalInfos");
+                    
+                    return criteriaBuilder.and(
+                        // 1. Filter by the specific field name (SI_TEXT_FIELD)
+                        criteriaBuilder.equal(additionalInfoJoin.get("fieldName"), "SETTLEMENT_INSTRUCTION"),
+                        // 2. Filter by the content (case-insensitive LIKE)
+                        criteriaBuilder.like(criteriaBuilder.lower(additionalInfoJoin.get("fieldValue")), "%" + siContent.toLowerCase() + "%"),
+                        // 3. Ensure we only search active/current SI records
+                        criteriaBuilder.equal(additionalInfoJoin.get("active"), true)
+                    );
+                });
+                filtersApplied = true;
+            }
         }
         
         // Execute Search Logic
