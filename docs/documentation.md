@@ -24,4 +24,10 @@ A mandatory password hashing policy has been implemented for all user credential
 Detailed documentation of the critical bug fix is available in `docs/TRD-2025-001_CashflowFix.md`
 
 ## STEP 5
-settlemt instructions
+The Additional Info (Key-Value) structure was chosen for implementing Settlement Instructions (SI) because it ensures the database schema remains stable. New fields can be added to the trading system, without tampering with the main Trade database table or requiring downtime for schema migrations. Also, the initial AdditionalInfo structure provides versioning and audit history. Every change to the SI is tracked independently of other trade amendments.
+
+The Settlement Instruction field has been successfully integrated across both the back-end and front-end. SI is treated as an optional input field during trade booking. A specialized textarea component was used on the front-end to ensure the text is easily viewed and scrolled, and includes a live character count to manage text limits.
+
+The system correctly retrieves and re-asserts the existing SI value, preventing the instruction from being accidentally wiped out when a non-Trader/Sales user amends a trade
+
+Security against SQL injection is enforced in the back-end by validating the text content and adhering to parameterized query best practices, ensuring the raw text input does not compromise the database.
