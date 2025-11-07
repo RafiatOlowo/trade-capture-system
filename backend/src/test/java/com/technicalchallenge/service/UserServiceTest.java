@@ -6,8 +6,11 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.junit.jupiter.api.extension.ExtendWith;
 import java.util.Optional;
+
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -15,6 +18,8 @@ import static org.junit.jupiter.api.Assertions.*;
 public class UserServiceTest {
     @Mock
     private ApplicationUserRepository applicationUserRepository;
+    @Mock
+    private PasswordEncoder passwordEncoder;
     @InjectMocks
     private ApplicationUserService applicationUserService;
 
@@ -32,6 +37,8 @@ public class UserServiceTest {
     void testSaveApplicationUserUser() {
         ApplicationUser user = new ApplicationUser();
         user.setId(2L);
+        user.setPassword("rawPassword123"); 
+        when(passwordEncoder.encode(user.getPassword())).thenReturn("hashedPasswordXYZ");
         when(applicationUserRepository.save(user)).thenReturn(user);
         ApplicationUser saved = applicationUserService.saveUser(user);
         assertNotNull(saved);

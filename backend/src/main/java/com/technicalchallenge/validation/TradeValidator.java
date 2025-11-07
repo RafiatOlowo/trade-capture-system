@@ -276,24 +276,25 @@ public class TradeValidator {
             // 1. Presence Check
             if (leg.getRate() == null) {
                 result.addError(legLabel + ": Fixed leg missing required rate specification.");
-            }
+            } else { // Only perform data quality checks if the rate is present
 
-            // 2. Data Quality Check: Rate must be reasonable and non-negative
-            Double rate = leg.getRate();
+                // 2. Data Quality Check: Rate must be reasonable and non-negative
+                Double rate = leg.getRate();
 
-            // Rule: Rate must be non-negative
-            if (rate.compareTo(0.0) < 0) {
-                result.addError(legLabel + ": Fixed rate cannot be negative.");
-            }
+                // Rule: Rate must be non-negative
+                if (rate.compareTo(0.0) < 0) {
+                    result.addError(legLabel + ": Fixed rate cannot be negative.");
+                }
 
-            // Rule: Rate must not be zero (for typical trading rules)
-            if (rate.compareTo(0.0) == 0) {
-                result.addError(legLabel + ": Fixed rate must be a non-zero value.");
-            }
+                // Rule: Rate must not be zero (for typical trading rules)
+                if (rate.compareTo(0.0) == 0) {
+                    result.addError(legLabel + ": Fixed rate must be a non-zero value.");
+                }
 
-            // Rule: Rate must be within a maximum boundary (Using 50.0% or 0.50)
-            if (rate.compareTo(0.50) > 0) { 
-                result.addError(legLabel + ": Fixed rate is too high (must be <= 50.0%).");
+                // Rule: Rate must be within a maximum boundary (Using 50.0% or 0.50)
+                if (rate.compareTo(50.0) > 0) {
+                    result.addError(legLabel + ": Fixed rate is too high (must be <= 50.0%).");
+                }
             }
         }
     }

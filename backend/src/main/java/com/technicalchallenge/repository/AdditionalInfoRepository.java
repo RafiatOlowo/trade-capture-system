@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import java.util.Optional;
 
 import java.util.List;
 
@@ -18,4 +19,12 @@ public interface AdditionalInfoRepository extends JpaRepository<AdditionalInfo, 
     AdditionalInfo findActiveByEntityTypeAndEntityIdAndFieldName(@Param("entityType") String entityType, @Param("entityId") Long entityId, @Param("fieldName") String fieldName);
 
     List<AdditionalInfo> findByEntityTypeAndEntityIdAndActiveTrue(String entityType, Long entityId);
+
+    // Retrieves the most recently created record for a given entity PK, 
+    // REGARDLESS of the 'active' status.
+    Optional<AdditionalInfo> findFirstByEntityTypeAndEntityIdAndFieldNameOrderByCreatedDateDesc(
+        String entityType, 
+        Long entityId, 
+        String fieldName
+    );
 }

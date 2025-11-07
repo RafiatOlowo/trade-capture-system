@@ -345,7 +345,7 @@ public class TradeService {
             throw new RuntimeException("Trade not found: " + tradeId);
         }
 
-        Trade existingTrade = existingTradeOpt.get();
+        Trade existingTrade = existingTradeOpt.get(); // This is older version (Old Primary Key: PK-A)
 
         // Deactivate existing trade
         existingTrade.setActive(false);
@@ -368,35 +368,72 @@ public class TradeService {
                 .orElseThrow(() -> new RuntimeException("AMENDED status not found"));
         amendedTrade.setTradeStatus(amendedStatus);
 
-        Trade savedTrade = tradeRepository.save(amendedTrade);
+        Trade savedTrade = tradeRepository.save(amendedTrade); // This is newer version (New Primary Key: PK-B)
 
         // Create new trade legs and cashflows
         createTradeLegsWithCashflows(tradeDTO, savedTrade);
 
         // START INTEGRATION: SAVE/UPDATE SETTLEMENT INSTRUCTIONS
-        String newInstructions = tradeDTO.getSettlementInstructions();
-        
-        // Check if instructions were provided in the DTO
-        if (newInstructions != null && !newInstructions.isBlank()) {
+        String newInstructionsInDTO = tradeDTO.getSettlementInstructions();
+        boolean isTraderSales = tradeValidator.hasAnyRole(userId, "TRADER_SALES");
 
-            // ACCESS CONTROL CHECK for Settlement Instructions
-            // Only TRADER_SALES can edit SI, even during general amendment.
-            if (tradeValidator.hasAnyRole(userId, "TRADER_SALES")) {
+        // PK-B: The ID used for the save operation (new trade version)
+        Long newSiEntityId = savedTrade.getId(); 
 
-                // Validate content security before persisting (e.g., no forbidden special chars)
-                validateSettlementInstructionsContent(newInstructions);
+        /*
+        * SCENARIOS FOR SETTLEMENT INSTRUCTION HANDLING:
+        * -----------------------------------------------------------------------------------------------------------------
+        * 1. TRADER_SALES + DTO has NEW/UPDATED value:    -> SAVE new value (using DTO)
+        * 2. TRADER_SALES + DTO has NULL/BLANK value:     -> DO NOTHING (Intentional clearance, skip re-assertion)
+        * 3. NON-TRADER_SALES + DTO has NULL/BLANK value: -> RE-ASSERT existing value (Prevents accidental wipe)
+        * 4. NON-TRADER_SALES + DTO has NEW value:        -> RE-ASSERT existing value (User lacks permission, ignore DTO)
+        * -----------------------------------------------------------------------------------------------------------------
+        */
 
-                // Delegate to service for persistence (deactivates old, creates new for audit)
+        // CASE 1: TRADER_SALES is submitting a non-blank instruction (Update/New Set)
+        if (isTraderSales && newInstructionsInDTO != null && !newInstructionsInDTO.isBlank()) {
+
+            // 1. Content Validation
+            validateSettlementInstructionsContent(newInstructionsInDTO);
+            
+            // 2. Save the new instruction (This deactivates the old one and links the new one to savedTrade.getId())
+            additionalInfoService.saveSettlementInstructions(
+                newSiEntityId, 
+                newInstructionsInDTO
+            );
+            logger.debug("TRADER/SALES updated SI for new amended trade ID: {}", newSiEntityId);
+
+        } 
+        // CASE 3 & 4: NON-TRADER_SALES, OR the DTO instruction is null/blank and we need to preserve the old value.
+        // This block is triggered if Case 1 was FALSE.
+        else if (!isTraderSales) { 
+
+            // PK-A: The ID used for the retrieval (old trade version)
+            Long oldSiEntityId = existingTrade.getId(); 
+
+            logger.debug("Non-privileged user amending trade. Attempting to retrieve SI from old PK: {}", oldSiEntityId);
+            
+            // Use the specific method to retrieve SI text from the old PK (PK-A), 
+            // ignoring the 'active' flag of the SI record, as the trade version is now inactive.
+            String existingInstructions = additionalInfoService.getSettlementInstructionTextByEntityPK(oldSiEntityId);
+
+
+            if (existingInstructions != null && !existingInstructions.isBlank()) {
+                // RE-ASSERTION: Copy the existing instruction text and link it to the new Primary Key (PK-B).
                 additionalInfoService.saveSettlementInstructions(
-                    savedTrade.getId(), 
-                    newInstructions
+                    newSiEntityId, // Linking to the NEW Trade Primary Key (PK-B)
+                    existingInstructions // Saving the old text
                 );
-                logger.debug("Updated settlement instructions for new amended trade ID: {}", savedTrade.getTradeId());
+                logger.warn("Non-privileged user {} amended trade. SUCCESSFULLY RE-ASSERTED existing SI from old PK {} to new PK {}. SI length: {}", 
+                            userId, oldSiEntityId, newSiEntityId, existingInstructions.length());
+
             } else {
-                logger.warn("User {} attempted to amend SI without TRADER/SALES role. SI update skipped.", userId);
-                // If the user provided SI but lacked permission,simply skip saving SI
-                // to allow the general trade amendment (e.g., date change) to proceed.
+                logger.warn("Non-privileged user {} amended trade. FAILED TO RETRIEVE EXISTING SI. old PK: {} returned NULL/BLANK SI. SI may have been missing originally or the retrieval query is incorrect.", 
+                            userId, oldSiEntityId);
             }
+        } else {
+            // CASE 2: TRADER_SALES submitted a blank/null instruction (Intentional Clearance).
+            logger.debug("TRADER/SALES provided null/blank SI in DTO. No action taken to preserve SI.");
         }
         // END INTEGRATION
         
