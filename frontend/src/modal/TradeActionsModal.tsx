@@ -38,6 +38,47 @@ export const TradeActionsModal: React.FC = observer(() => {
         }
     }, [isSuccess, error]);
 
+    // Helper function to format dates from API response
+    const processTradeResponse = (tradeData: any) => {
+        const convertToDate = (val: string | undefined) => val ? new Date(val) : undefined;
+        const dateFields = [
+            'tradeDate',
+            'startDate',
+            'maturityDate',
+            'executionDate',
+            'lastTouchTimestamp',
+            'validityStartDate'
+        ];
+
+        const formatDateForInput = (date: Date | undefined) =>
+            date ? date.toISOString().slice(0, 10) : undefined;
+        
+        // Format date fields
+        dateFields.forEach(field => {
+            if (tradeData[field]) {
+                const dateObj = convertToDate(tradeData[field]);
+                tradeData[field] = formatDateForInput(dateObj);
+            }
+        });
+
+        // Ensure tradeLegs is an array of TradeLeg objects
+        if (Array.isArray(tradeData.tradeLegs)) {
+            tradeData.tradeLegs = tradeData.tradeLegs.map((leg: TradeLeg) => {
+                return {
+                    ...leg,
+                    legId: leg.legId || '',
+                    legType: leg.legType || '',
+                    rate: leg.rate !== undefined ? leg.rate : '',
+                    index: leg.index || '',
+                };
+            });
+        } else {
+            tradeData.tradeLegs = [];
+        }
+        return tradeData as Trade;
+    }
+
+    // Original handler (now explicitly for Trade ID lookup)
     const handleSearch = async (e: React.FormEvent) => {
         e.preventDefault();
         console.log("Searching for trade ID:", tradeId);
@@ -45,45 +86,10 @@ export const TradeActionsModal: React.FC = observer(() => {
         try {
             const tradeResponse = await api.get(`/trades/${tradeId}`);
             if (tradeResponse.status === 200) {
-                const convertToDate = (val: string | undefined) => val ? new Date(val) : undefined;
-                const tradeData = tradeResponse.data;
-                const dateFields = [
-                    'tradeDate',
-                    'startDate',
-                    'maturityDate',
-                    'executionDate',
-                    'lastTouchTimestamp',
-                    'validityStartDate'
-                ];
-
-                const formatDateForInput = (date: Date | undefined) =>
-                    date ? date.toISOString().slice(0, 10) : undefined;
-                dateFields.forEach(field => {
-                    if (tradeData[field]) {
-                        const dateObj = convertToDate(tradeData[field]);
-                        tradeData[field] = formatDateForInput(dateObj);
-                    }
-                });
-                if (Array.isArray(tradeData.tradeLegs)) {
-                    console.log(`Found ${tradeData.tradeLegs.length} trade legs in the response`);
-                    tradeData.tradeLegs = tradeData.tradeLegs.map((leg: TradeLeg) => {
-                        console.log("Processing leg:", leg);
-                        return {
-                            ...leg,
-                            legId: leg.legId || '',
-                            legType: leg.legType || '',
-                            rate: leg.rate !== undefined ? leg.rate : '',
-                            index: leg.index || '',
-                        };
-                    });
-                } else {
-                    console.warn("No trade legs found in the response!");
-                    tradeData.tradeLegs = [];
-                }
+                const tradeData = processTradeResponse(tradeResponse.data);
                 setTrade(tradeData);
                 setSnackbarOpen(true)
-                setSnackbarMessage("Successfully fetched trade details");
-
+                setSnackbarMessage("Successfully fetched trade details by ID.");
             } else {
                 console.error("Error fetching trade:", tradeResponse.statusText);
                 setSnackbarMessage("Error fetching trade details: " + tradeResponse.statusText);
@@ -104,6 +110,70 @@ export const TradeActionsModal: React.FC = observer(() => {
             setTradeId("")
         }
     };
+
+    // NEW handler for Settlement Instruction Search
+    const handleSearchByInstructions = async (e: React.FormEvent) => {
+        e.preventDefault();
+        console.log("Searching for trades by SI content:", tradeId);
+        
+        if (!tradeId) {
+            setSnackbarOpen(true);
+            setSnackbarMessage("Please enter a term to search for in Settlement Instructions.");
+            setIsLoadError(true);
+            setTimeout(() => { setSnackbarOpen(false); setIsLoadError(false); }, 3000);
+            return;
+        }
+
+        setLoading(true);
+        // Use the SI search endpoint with the current input value as the search term
+        const endpoint = `/trades/search/settlement-instructions?instructions=${encodeURIComponent(tradeId)}`;
+        console.log("Using endpoint:", endpoint);
+
+        try {
+            const tradeResponse = await api.get(endpoint);
+            
+            if (tradeResponse.status === 200 && tradeResponse.data.length > 0) {
+                // SI search returns a list, but the modal is designed for one trade. 
+                // Display the first result found.
+                const firstTrade = tradeResponse.data[0];
+                const tradeData = processTradeResponse(firstTrade);
+                
+                setTrade(tradeData);
+                setSnackbarOpen(true);
+                
+                let message = `Found ${tradeResponse.data.length} trade(s) matching SI content. Displaying first result.`;
+                if (tradeResponse.data.length === 1) {
+                    message = "Successfully fetched trade details by SI content.";
+                }
+                setSnackbarMessage(message);
+
+            } else if (tradeResponse.status === 200 && tradeResponse.data.length === 0) {
+                 setTrade(null);
+                 setSnackbarOpen(true);
+                 setSnackbarMessage(`No trades found matching SI content: "${tradeId}"`);
+                 setIsLoadError(true);
+            } else {
+                console.error("Error fetching trades by SI:", tradeResponse.statusText);
+                setSnackbarMessage("Error fetching trades by SI: " + tradeResponse.statusText);
+                setIsLoadError(true);
+            }
+        } catch (error) {
+            console.error("Error fetching trades by SI:", error);
+            setIsLoadError(true);
+            setSnackbarOpen(true);
+            setSnackbarMessage("Error fetching trades by SI: " + (error instanceof Error ? error.message : "Unknown error"));
+        } finally {
+            setTimeout(() => {
+                setSnackbarOpen(false);
+                setSnackbarMessage("");
+                setIsLoadError(false);
+            }, 3000);
+            setLoading(false);
+            setTradeId("");
+        }
+    };
+
+
     const handleClearAll = () => {
         setTrade(null);
         setTradeId("");
@@ -125,13 +195,17 @@ export const TradeActionsModal: React.FC = observer(() => {
                 <Input size={"sm"}
                        type={"search"}
                        required
-                       placeholder={"Search by Trade ID"}
+                       placeholder={"Search by Trade ID or SI"}
                        key={"trade-id"}
                        value={tradeId}
                        onChange={(e) => setTradeId(e.currentTarget.value)}
                        className={"bg-white h-fit w-fit"}/>
+                {/* Search by ID (Original Functionality) */}       
                 <Button variant={"primary"} type={"button"} size={"sm"} onClick={handleSearch}
-                        className={"w-fit h-fit"}>Search</Button>
+                        className={"w-fit h-fit"}>Search ID</Button>
+                {/* NEW: Search by Settlement Instructions */}
+                <Button variant={"primary"} type={"button"} size={"sm"} onClick={handleSearchByInstructions}
+                        className={"w-fit h-fit !bg-green-600 hover:!bg-green-700"}>Search SI</Button>
                 <Button variant={"primary"} type={"button"} size={"sm"} onClick={handleClearAll}
                         className={"w-fit h-fit !bg-gray-500 hover:!bg-gray-700"}>Clear</Button>
                 { userStore.authorization === "TRADER_SALES" &&
